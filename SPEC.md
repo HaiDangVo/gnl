@@ -69,7 +69,7 @@ Served at `GET /.well-known/gio-no-luc.json`, as an envelope signed by the game 
 | type | signer | payload (besides type, iss, aud, iat, id) |
 |---|---|---|
 | `ticket` | B | `sub` (a **one-time** id for this player and this crossover, never B's stable pseudonym — B keeps the mapping; otherwise the public OFFER would link one person's accounts across games), `nonce`, `exp` (≤ 15 min) |
-| `offer` | A | `ticket` (the envelope), `player` (A's pseudonym), `items` `[{id, qty, cgnl}]`, `cgnl`, `commit` `{day, root, index, proof}` (the player's latest daily commitment, §6.2), `exp` (deadline for ACCEPT, ≤ 24 h) |
+| `offer` | A | `ticket` (the envelope), `player` (A's pseudonym), `items` `[{id, qty, cgnl}]`, `cgnl`, `first` and `commit`, each `{day, s, index, size, proof}`: the player's leaf in their **first** and **latest** daily commitments (§6.2) with its inclusion proof — what R2 is computed from, `exp` (deadline for ACCEPT, ≤ 24 h) |
 | `accept` | B | `offer` (hash of the OFFER payload), `cgnl` (what B takes, ≤ offered), `grant` `[{id, qty}]`, `upfront`, `burnBy` |
 | `burn` | A | `accept` (hash of the ACCEPT payload) |
 | `grant` | B | `burn` (hash of the BURN payload) |
@@ -97,7 +97,7 @@ A player's **first committed day** is the first `commit` that contains their pse
 
 ### 6.3 Witnesses and anchors
 
-- **Witnesses**: every game listed in a card's `witnesses` fetches that game's checkpoint at least daily, checks it is an append-only extension of the last one it saw (RFC 9162 consistency, or v0: refetch the entries and recompute), mirrors the entries, and appends a `cosign` entry (`{checkpoint: hash}`) to its **own** log.
+- **Witnesses**: every game listed in a card's `witnesses` fetches that game's checkpoint at least daily, checks the served entries hash to it and that it is an append-only extension of the last one it co-signed (RFC 9162 consistency, or v0: recompute the root of the first `size` entries), mirrors the entries, and appends a `cosign` entry (`{of: origin, checkpoint: <the checkpoint envelope>}`) to its **own** log. If the old checkpoint is no longer a prefix, it logs a `proof` (R7, the two signed checkpoints as evidence) instead.
 - **Anchors**: each day's checkpoint is timestamped with **OpenTimestamps** (Bitcoin; free) and MAY also be anchored on **Ronin**: a zero-value transaction from the game's chain account to itself with data `0x474e4c31` ("GNL1") followed by `sha256(JCS(checkpoint payload))`. The `.ots` file and the transaction hash are logged in the next `checkpoint`'s optional `anchors` field.
 
 ## 7. Rules anyone can check
@@ -119,7 +119,7 @@ For R7's "no GRANT before the deadline", the evidence is the ACCEPT, the BURN an
 
 ## 8. Audit
 
-`POST /gnl/audit` (B → A), body: an envelope `{type: "audit", offer: hash, consent: <the player's TICKET>, from, to}`. A answers with `[{day, state, salt, index, proof}]` for every committed day in range. B checks each against the logged `commit` roots, then applies A's `pace` limits to consecutive states (R3) and checks the burn (R4). A game MUST answer audits for its own offers for 180 days. Refusing an audit is treated as R3 failing.
+`POST /gnl/audit` (B → A), body: an envelope `{type: "audit", iss: B, aud: A, offer: hash}`. **A answers only the game the offer went to** (`iss` = the offer's `aud`, signature checked): the ticket inside the OFFER is public, so it can't be consent for anyone else. The player's consent is the crossover itself. A answers with a signed `{type: "audit-reply", aud: B, offer: hash, days: [{day, state, salt, index, size, proof}]}` covering every day from the player's first commitment to today. B checks each against the logged `commit` roots, then applies A's `pace` limits to consecutive states (R3) and checks the burn (R4: a day's pace allowance at most). The reply is signed, so when it shows a lie it **is** the fraud proof, together with the OFFER and the BURN. A game MUST answer audits for its own offers for 180 days. Refusing an audit is treated as R3 failing.
 
 ## 9. HTTP API
 
@@ -168,6 +168,7 @@ Each one names the attacker and what limits it. Anything still marked **open** i
 | Spam B with offers | anyone | An OFFER without a valid ticket B issued is rejected before any other work; rate limits |
 | Link one person's accounts across games from public logs | anyone | One-time ticket `sub` (§5); only pseudonyms in logs |
 | Run code on a partner's server through an audit | A | `pace` is data, never code (§4) |
+| Read a player's whole history by replaying the public ticket as "consent" | anyone | Audits answered only for the offer's own `aud`, signature checked (§8) — found building the sandbox |
 | A stolen signing key | outsider | Bounded by the victim's lines; `revoke` entry; partners stop at that checkpoint |
 | Lie about a minor's age | player | Each game's own duty; a game that can't tell uses `minor` for everyone |
 

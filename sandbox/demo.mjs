@@ -1,0 +1,71 @@
+/**
+ * Two sandbox games, A (alice) and B (bob), and a crossover between them: once honest, then once for each lie the
+ * protocol must catch. Fails (exit 1) if the honest run finds anything or a lie goes uncaught.
+ *
+ *   npm run sandbox
+ */
+import assert from "node:assert/strict";
+import { audit } from "./auditor.mjs";
+import { startNode } from "./node.mjs";
+
+const SCENARIOS = [
+  { name: "honest", expect: null },
+  { name: "inflate", cheatA: "inflate", qty: 9000, expect: ["A", "R2"] },
+  { name: "keep", cheatA: "keep", expect: ["A", "R4"] },
+  { name: "pace", cheatA: "pace", expect: ["A", "R3"] },
+  { name: "fork", fork: true, expect: ["A", "R7", "forked"] },
+  { name: "nogrant", cheatB: "nogrant", expect: ["B", "R7", "no grant"] },
+];
+
+let port = 4100;
+let failed = 0;
+for (const s of SCENARIOS) {
+  const A = await startNode({ name: "a", port: ++port, cheat: s.cheatA, seed: { alice: { gold: 2000, level: 1, gems: 0 } }, grow: { alice: { gold: 2000, level: 1, gems: 5 } } });
+  const B = await startNode({ name: "b", port: ++port, cheat: s.cheatB, seed: { bob: { gold: 0, level: 1, gems: 0 } }, grow: { bob: { gold: 500 } } });
+  const day = async () => {
+    A.newDay();
+    B.newDay();
+    await A.witness([B.origin]);
+    await B.witness([A.origin]);
+    await B.runAudits();
+  };
+  try {
+    await A.witness([B.origin]);
+    await B.witness([A.origin]);
+    for (let i = 0; i < 4; i++) await day(); // Five days of alice's progress committed
+    const before = { alice: A.player("alice"), bob: B.player("bob") };
+    const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], B.ticket("bob", A.origin));
+    await day(); // A commits the day after the burn; B audits
+    await day();
+    if (s.fork) A.rewrite();
+    const found = await audit([A.origin, B.origin]);
+    const who = (o) => (o === A.origin ? "A" : "B");
+    const after = { alice: A.player("alice"), bob: B.player("bob") };
+
+    if (!s.expect) {
+      assert.deepEqual(found, [], JSON.stringify(found, null, 1));
+      assert.ok(r.grant, "granted");
+      assert.equal(after.bob.gold - before.bob.gold - 1000, 400, "bob got 20% of 2000 gold up front (and grew 500 a day)");
+      assert.equal(after.bob.vesting, 1600, "the rest vests");
+      assert.equal(after.alice.gold, before.alice.gold - 3000 + 4000, "alice's 3000 gold gone (and grew 2000 a day)");
+    } else {
+      const [against, rule, why = ""] = s.expect;
+      const hit = found.find((f) => who(f.against) === against && f.rule === rule && f.why.includes(why));
+      assert.ok(hit, `expected ${rule} against ${against}, found ${JSON.stringify(found.map((f) => [who(f.against), f.rule, f.why]))}`);
+      if (s.name === "inflate") assert.match(r.refused, /R2/, "B refused the offer itself");
+      if (s.name === "keep" || s.name === "pace") {
+        assert.ok(B.suspended.has(A.origin), "B cut A off");
+        assert.equal(after.bob.vesting, 0, "and took back what was still vesting");
+      }
+    }
+    const lines = found.map((f) => `${f.rule} against ${who(f.against)}: ${f.why}`);
+    console.log(`ok    ${s.name.padEnd(8)} ${lines.length ? lines[0] : "clean, 3000 gold → bob +400 now, 1600 vesting"}`);
+  } catch (e) {
+    failed++;
+    console.log(`FAIL  ${s.name.padEnd(8)} ${e.message}`);
+  } finally {
+    await A.close();
+    await B.close();
+  }
+}
+process.exit(failed ? 1 : 0);

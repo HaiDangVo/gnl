@@ -16,14 +16,18 @@ Mỗi giai đoạn có "xong khi". Chưa xong thì không sang giai đoạn sau.
 
 ## Giai đoạn 1: Sandbox
 
-Hai bản của một game giả (`sandbox-a`, `sandbox-b`), chỉ có đồ giả, chạy toàn bộ giao thức. Hạ tầng: một trang tĩnh + vài function trên free tier.
+Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đồng hồ ngày giả lập), chỉ có đồ giả, chạy toàn bộ giao thức. `npm run sandbox` chạy 1 lần sạch + 5 lần gian lận.
 
-- [ ] Rate card, 5 thông điệp, hold/burn/grant, log `entries.jsonl` + `checkpoint.json`
-- [ ] Commit hằng ngày, audit (§8), làm nhân chứng cho nhau
-- [ ] Neo hằng ngày: OpenTimestamps + Ronin Saigon
-- [ ] **Auditor**: CLI đọc mọi log, kiểm R1–R8, xuất fraud proof
-- [ ] Cài sẵn 5 kiểu gian lận (fork log, vượt trần giờ, vượt pace, đốt mà vẫn còn, nhận cam kết mà không cấp). Auditor phải bắt đủ cả 5
+- [x] Rate card, ticket, 5 thông điệp, hold/burn/grant, refund, log `entries.jsonl` + `checkpoint.json` (chạy local, trong bộ nhớ)
+- [x] Commit hằng ngày, audit (§8), làm nhân chứng cho nhau (nhân chứng tự bắt fork khi ký chéo)
+- [x] Hạn mức tuần (R5, chưa tự tăng), vesting 20% + thu hồi khi có fraud proof
+- [x] **Auditor** (`npm run audit -- <origin>…`): đọc mọi log, kiểm R1, R2, R7 (hứa mà không cấp, fork), kiểm lại mọi fraud proof R3/R4 game khác đã ghi
+- [x] 5 kiểu gian lận cài sẵn, bắt đủ cả 5: vượt trần giờ (R2), đốt mà vẫn giữ (R4), tăng vượt pace (R3), fork log (R7), nhận cam kết mà không cấp (R7). Đã thử phá luật thì demo báo đỏ đúng chỗ
+- [x] Tìm thêm lỗ khi làm: ticket công khai không được coi là sự đồng ý cho audit (SPEC §8, §13)
+- [ ] Neo hằng ngày: OpenTimestamps + Ronin Saigon (script neo đã có, chưa gắn vào vòng ngày)
+- [ ] Đưa lên mạng thật: mỗi sandbox là một URL HTTPS (free tier), lưu bền
 - [ ] Conformance test: một game khác chạy vào URL của mình để biết làm đúng SPEC chưa
+- [ ] Một game thật cắm vào node: ứng viên `apps/endless-run` (coin mỗi lượt, cần thêm ví coin lưu lại + tài khoản)
 
 **Xong khi:** một lần chuyển đầy đủ chạy được cả hai chiều; auditor bắt đủ 5 kiểu gian lận; conformance test pass trên sandbox.
 

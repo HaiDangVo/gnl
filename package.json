@@ -5,11 +5,15 @@
   "description": "Giờ Nổ Lực — an open protocol for players to carry their effort from one game to another",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "check": "node ref/check.mjs",
     "wallet": "node chain/wallet.mjs",
-    "anchor": "node chain/anchor.mjs"
+    "anchor": "node chain/anchor.mjs",
+    "sandbox": "node sandbox/demo.mjs",
+    "audit": "node sandbox/auditor.mjs"
   },
   "dependencies": {
     "viem": "2.57.7"

@@ -36,6 +36,7 @@ Chi tiết: [SPEC.md](SPEC.md). Lộ trình: [ROADMAP.md](ROADMAP.md).
 | `schemas/gnl.schema.json` | JSON Schema cho rate card, các thông điệp và log |
 | `ref/gnl.js` | Code tham chiếu (chỉ dùng `node:crypto`): canonical JSON (RFC 8785), ký/kiểm Ed25519, cây Merkle của log (RFC 9162), luật R2, R3 và R8 |
 | `chain/` | Neo checkpoint lên Ronin (Saigon testnet / mainnet) |
+| `sandbox/` | Game sandbox nói `gnl/0` (`node.mjs`), auditor ai cũng chạy được (`auditor.mjs`), demo 1 lần sạch + 5 kiểu gian lận (`demo.mjs`) |
 
 ```sh
 npm install
@@ -43,6 +44,7 @@ npm run check                # tự kiểm code tham chiếu
 npm run wallet               # tạo ví Saigon, xem số dư (lấy RON test: https://faucet.roninchain.com)
 npm run anchor               # neo một checkpoint mẫu lên Saigon
 npm run anchor -- verify <tx hash>
+npm run sandbox              # 2 game sandbox: 1 lần chuyển sạch + 5 kiểu gian lận, auditor phải bắt đủ
 ```
 
 ## Tham gia
