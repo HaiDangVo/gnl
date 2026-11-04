@@ -8,6 +8,7 @@
  */
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { defineSecret } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { createWalletClient, defineChain, http } from "viem";
@@ -18,7 +19,8 @@ import { serve, TOY } from "./lib/sandbox/node.mjs";
 
 initializeApp();
 const db = getFirestore();
-// Ronin anchoring needs the chain key as a secret the owner sets (README "Online"); without it, Bitcoin only
+// The Saigon wallet's key, a Secret Manager secret the owner set (never in the repo): each day's Ronin anchor
+const SAIGON_SECRET = defineSecret("GNL_SAIGON_KEY");
 const SAIGON_KEY = () => process.env.GNL_SAIGON_KEY?.trim();
 const REGION = "asia-southeast1";
 
@@ -75,24 +77,28 @@ async function anchor(s) {
   s.anchors = s.anchors.slice(-8);
 }
 
-/** A new UTC day's work for one game, once. */
-async function daily(host) {
-  const { s, g, save } = await load(host);
-  if (s.lastDay === realClock.today()) return;
-  g.newDay();
-  await save(); // Its commitment is public before it asks anyone else for anything
-  try {
-    await g.witness();
-    await g.runAudits();
-  } catch (e) {
-    console.warn(`${host} daily:`, e.message);
+/** A new UTC day's work for one game, once: the commitment, witnessing, audits — then the day's anchors, once too. */
+async function daily(origin) {
+  const { s, g, save } = await load(origin);
+  const today = realClock.today();
+  if (s.lastDay !== today) {
+    g.newDay();
+    await save(); // Its commitment is public before it asks anyone else for anything
+    try {
+      await g.witness();
+      await g.runAudits();
+    } catch (e) {
+      console.warn(`${origin} daily:`, e.message);
+    }
   }
+  if (s.anchoredDay === today) return;
+  s.anchoredDay = today; // Before anchoring: two writes at once don't spend the chain account's nonce twice
   await anchor(s);
   g.commit(); // The anchors into the next signed checkpoint (and a fresh commitment: R2 counts days, not commitments)
   await save();
 }
 
-const OPTS = { region: REGION, invoker: "public", maxInstances: 1, concurrency: 20, cpu: 1, memory: "512MiB", timeoutSeconds: 60 };
+const OPTS = { region: REGION, invoker: "public", maxInstances: 1, concurrency: 20, cpu: 1, memory: "512MiB", timeoutSeconds: 60, secrets: [SAIGON_SECRET] };
 
 /** One game's HTTP face: SPEC §9 plus the sandbox's /dev doors (CORS open: endless-run's page calls them). */
 const node = (origin) =>

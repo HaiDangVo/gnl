@@ -59,7 +59,7 @@ npm run audit -- <origin>…   # auditor trên log công khai của các game
 - https://gnl-endless.web.app: ví coin của game Endless Run
 - https://gnl-sandbox.web.app: game đồ chơi (vàng, cấp, ngọc)
 
-Mỗi ngày hai game tự commit, ký xác nhận log của nhau và neo checkpoint vào Bitcoin (OpenTimestamps). Các bước thử bằng curl: xem `AGENTS.md`, hoặc tool MCP `gnl_sandboxes`.
+Mở thẳng hai link trên là thấy trang cho người xem: bảng quy đổi, nhật ký công khai, các mốc neo (Ronin, Bitcoin), và trình duyệt của bạn tự kiểm chữ ký cùng gốc Merkle, không cần tin server. Mỗi ngày hai game tự commit, ký xác nhận log của nhau và neo checkpoint vào Bitcoin (OpenTimestamps) và Ronin Saigon. Các bước thử bằng curl: xem `AGENTS.md`, hoặc tool MCP `gnl_sandboxes`.
 
 ## Cho AI agent
 

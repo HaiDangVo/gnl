@@ -26,7 +26,8 @@ Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đ�
 - [x] Tìm thêm lỗ khi làm: ticket công khai không được coi là sự đồng ý cho audit (SPEC §8, §13)
 - [x] Đưa lên mạng: https://gnl-endless.web.app và https://gnl-sandbox.web.app (Firebase Functions sau Hosting, lưu Firestore, mỗi ngày tự commit, ký chéo, audit)
 - [x] Neo hằng ngày bằng OpenTimestamps (Bitcoin)
-- [ ] Neo hằng ngày lên Ronin Saigon: code đã có, chờ owner đặt key làm secret (`firebase functions:secrets:set GNL_SAIGON_KEY`) rồi bind vào function
+- [x] Neo hằng ngày lên Ronin Saigon từ cloud (key là secret `GNL_SAIGON_KEY` owner đặt): tx đầu tiên từ cloud 2026-11-04, block 57264240
+- [x] Trang cho người xem ở `/` của mỗi node: rate card, nhật ký dễ đọc, link neo (Ronin, file .ots), và tự kiểm chữ ký + gốc Merkle ngay trong trình duyệt
 - [x] Conformance test (`npm run conform -- <origin>`): pass cả 2 sandbox. Nó bắt được một lỗ SSRF (offer từ origin lạ làm server fetch bừa), đã vá: chỉ nhận offer từ đối tác
 - [x] `AGENTS.md` + MCP server (`mcp/server.mjs`, chỉ đọc): agent của game khác tự đọc SPEC, thử sandbox, chạy conformance và audit
 - [x] Một game thật cắm vào node: Endless Run (https://endless-run.web.app). Coin mỗi lượt vào ví ở `gnl-endless`, nút "Carry them to Sandbox" ngay trên màn game over

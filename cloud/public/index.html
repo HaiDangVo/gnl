@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giờ Nổ Lực · node</title>
+<meta name="description" content="A Giờ Nổ Lực game node: its rate card, its public log and anchors, verified in your browser.">
+<style>
+  :root {
+    --bg: #f6f4ef; --card: #fff; --ink: #1d1b16; --soft: #6b665b; --line: #e4dfd3; --gold: #b07a12; --good: #1f7a4a; --bad: #b3261e; --chip: #f0ebe0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12110e; --card: #1b1a16; --ink: #ece7db; --soft: #9a9384; --line: #2e2b24; --gold: #e5b74a; --good: #5cc48b; --bad: #ef7d74; --chip: #26241e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  header small { color: var(--gold); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 12px; }
+  h1 { margin: 2px 0 4px; font-size: 28px; }
+  h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin: 32px 0 10px; }
+  a { color: var(--gold); }
+  .origin { font-family: var(--mono); color: var(--soft); font-size: 13px; word-break: break-all; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .pill { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+  .pill.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
+  .pill.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--soft); font-weight: 600; font-size: 12px; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; min-width: 64px; text-align: center; border-radius: 4px; padding: 1px 6px; font: 600 12px var(--mono); background: var(--chip); }
+  .t-offer, .t-burn { color: var(--gold); } .t-accept, .t-grant { color: var(--good); } .t-proof, .t-refund { color: var(--bad); }
+  .log { max-height: 560px; overflow: auto; }
+  .row { border-bottom: 1px solid var(--line); padding: 8px 4px; }
+  .row summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; list-style: none; }
+  .row summary::-webkit-details-marker { display: none; }
+  .when { color: var(--soft); font: 12px var(--mono); white-space: nowrap; }
+  .what { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  pre { font: 12px/1.4 var(--mono); background: var(--chip); padding: 10px; border-radius: 6px; overflow: auto; max-height: 320px; }
+  .muted { color: var(--soft); font-size: 13px; }
+  @media (max-width: 600px) {
+    .row summary { flex-wrap: wrap; justify-content: space-between; }
+    .row .what { order: 3; flex-basis: 100%; }
+    h1 { font-size: 23px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <small>Giờ Nổ Lực · node</small>
+    <h1 id="name">…</h1>
+    <div class="origin" id="origin"></div>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <h2>Kiểm tra ngay trong trình duyệt của bạn · Verified in your browser</h2>
+  <div class="card"><div id="checks" class="muted">Đang kiểm…</div></div>
+
+  <h2>Bảng quy đổi · Rate card</h2>
+  <div class="grid">
+    <div class="card"><table id="rates"></table></div>
+    <div class="card" id="policy"></div>
+  </div>
+
+  <h2>Neo · Anchors</h2>
+  <div class="card" id="anchors"></div>
+
+  <h2>Nhật ký công khai · Public log <span class="muted" id="logcount"></span></h2>
+  <div class="card log" id="log"></div>
+
+  <p class="muted" style="margin-top:32px">
+    Giao thức mở, đồ trong sandbox là đồ giả · An open protocol; sandbox items are fake ·
+    <a href="https://github.com/HaiDangVo/gnl">github.com/HaiDangVo/gnl</a> ·
+    <span id="peers"></span>
+  </p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const short = (s, n = 8) => esc(String(s).slice(0, n));
+const time = (t) => (t ? new Date(t).toLocaleString() : "");
+const gnl = (cgnl) => `${(cgnl / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })} GNL`;
+
+// RFC 8785 canonical JSON and RFC 9162 Merkle hashing — the same as ref/gnl.js, so the page trusts no one either
+const canonical = (v) =>
+  v === null || typeof v !== "object" ? JSON.stringify(v)
+  : Array.isArray(v) ? `[${v.map(canonical).join(",")}]`
+  : `{${Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}`;
+const enc = new TextEncoder();
+const sha = async (...parts) => {
+  const all = parts.map((p) => (typeof p === "string" ? enc.encode(p) : p));
+  const buf = new Uint8Array(all.reduce((n, a) => n + a.length, 0));
+  let o = 0;
+  for (const a of all) buf.set(a, o), (o += a.length);
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", buf));
+};
+const b64u = (u8) => btoa(String.fromCharCode(...u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+async function root(entries) {
+  const leaves = await Promise.all(entries.map((e) => sha(new Uint8Array([0]), canonical(e))));
+  const go = async (ls) => {
+    if (ls.length === 0) return sha("");
+    if (ls.length === 1) return ls[0];
+    const k = 2 ** Math.floor(Math.log2(ls.length - 1));
+    return sha(new Uint8Array([1]), await go(ls.slice(0, k)), await go(ls.slice(k)));
+  };
+  return b64u(await go(leaves));
+}
+async function opens(env, keys) {
+  const jwk = keys.find((k) => k.kid === env.sig.kid);
+  if (!jwk) return false;
+  const key = await crypto.subtle.importKey("jwk", { kty: "OKP", crv: "Ed25519", x: jwk.x }, { name: "Ed25519" }, false, ["verify"]);
+  return crypto.subtle.verify({ name: "Ed25519" }, key, unb64u(env.sig.value), enc.encode(canonical(env.payload)));
+}
+
+function describe(p) {
+  switch (p.type) {
+    case "offer": return `Người chơi ${short(p.player)}… gửi đi ${p.items.map((i) => `${i.qty} ${esc(i.id)}`).join(", ")} = <b>${gnl(p.cgnl)}</b> → ${esc(new URL(p.aud).host)}`;
+    case "accept": return `Nhận cam kết từ ${esc(new URL(p.aud).host)}: <b>${gnl(p.cgnl)}</b> → cấp ${p.grant.map((g) => `${g.qty} ${esc(g.id)}`).join(", ")} (${Math.round(p.upfront * 100)}% ngay)`;
+    case "burn": return `Đã đốt đồ cho lần chuyển ${short(p.id)}… → ${esc(new URL(p.aud).host)}`;
+    case "grant": return `Đã cấp cho lần chuyển ${short(p.id)}… từ ${esc(new URL(p.aud).host)}`;
+    case "refund": return `Hoàn lại lần chuyển ${short(p.id)}… (${esc(p.why)})`;
+    case "commit": return `Cam kết ngày ${esc(p.day)}: ${p.size} người chơi, gốc ${short(p.root, 10)}…`;
+    case "cosign": return `Ký xác nhận log của ${esc(new URL(p.of).host)} (${p.checkpoint.payload.size} mục)`;
+    case "proof": return `<b>BẰNG CHỨNG GIAN LẬN</b> (${esc(p.rule)}) chống ${esc(new URL(p.against).host)}: ${esc(p.why ?? "")}`;
+    default: return esc(p.type);
+  }
+}
+
+async function main() {
+  const [card, text, cp] = await Promise.all([
+    fetch("/.well-known/gio-no-luc.json").then((r) => r.json()),
+    fetch("/gnl/log/entries.jsonl").then((r) => r.text()),
+    fetch("/gnl/log/checkpoint.json").then((r) => r.json()),
+  ]);
+  const entries = text.split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const c = card.payload;
+  document.title = `${c.game.name} · Giờ Nổ Lực`;
+  $("name").textContent = c.game.name;
+  $("origin").textContent = c.iss;
+  const count = (t) => entries.filter((e) => e.payload.type === t).length;
+  const proofs = entries.filter((e) => e.payload.type === "proof");
+  $("pills").innerHTML = [
+    `<span class="pill">${entries.length} mục trong log</span>`,
+    `<span class="pill">${count("offer")} lần gửi đi · ${count("grant")} lần nhận về</span>`,
+    `<span class="pill">checkpoint ${time(cp.payload.t)}</span>`,
+    proofs.length ? `<span class="pill bad">${proofs.length} bằng chứng gian lận đã ghi</span>` : `<span class="pill ok">không có bằng chứng gian lận</span>`,
+  ].join("");
+
+  // The checks: the card and checkpoint signed by the game's own key, the entries hashing to the checkpoint
+  const checks = [];
+  try {
+    const keys = c.keys;
+    checks.push(["Rate card ký bằng khoá của chính game · card signed by its own key", await opens(card, keys)]);
+    checks.push(["Checkpoint có chữ ký hợp lệ · checkpoint signature", await opens(cp, keys)]);
+    checks.push([`Gốc Merkle của ${entries.length} mục khớp checkpoint · entries hash to the checkpoint`, cp.payload.size === entries.length && (await root(entries)) === cp.payload.root]);
+    let bad = 0;
+    for (const e of entries.slice(-200)) if (!(await opens(e, keys))) bad++;
+    checks.push([`Chữ ký của ${Math.min(200, entries.length)} mục gần nhất · latest entries signed`, bad === 0]);
+  } catch (e) {
+    checks.push([`Trình duyệt này chưa kiểm được Ed25519 (${esc(e.message)}) · this browser can't verify Ed25519`, null]);
+  }
+  $("checks").innerHTML = checks.map(([t, ok]) => `<div>${ok === true ? "✅" : ok === false ? "❌" : "⚠️"} ${t}</div>`).join("");
+
+  const imp = Object.fromEntries(c.imports.map((r) => [r.id, r.cgnlPer]));
+  $("rates").innerHTML = `<tr><th>Thứ · Thing</th><th style="text-align:right">Xuất · out</th><th style="text-align:right">Nhập · in</th></tr>` +
+    c.exports.map((r) => `<tr><td>${esc(r.name)} <span class="muted">(${esc(r.unit)})</span></td><td class="n">${gnl(r.cgnlPer)}</td><td class="n">${imp[r.id] ? gnl(imp[r.id]) : "—"}</td></tr>`).join("") +
+    `<tr><td colspan="3" class="muted">Mỗi đơn vị đáng bao nhiêu Giờ Nổ Lực. Nhập luôn ≥ xuất (R8), nên không vòng chuyển nào sinh lời.</td></tr>`;
+  $("policy").innerHTML = `
+    <div><b>Trần giờ mỗi ngày</b>: ${c.hoursPerDay.adult} giờ (người lớn), ${c.hoursPerDay.minor} giờ (dưới 18)</div>
+    <div><b>Hạn mức nhận mỗi tuần từ một game</b>: ${gnl(c.policy.lineStart)} (tối đa ${gnl(c.policy.lineCap)})</div>
+    <div><b>Nhận ngay</b>: ${Math.round(c.policy.upfront * 100)}%, phần còn lại mở dần khi chơi</div>
+    <div><b>Tốc độ tối đa</b>: ${Object.entries(c.pace).map(([f, g]) => `${esc(f)} ${g.burst} + ${g.perHour}/giờ`).join(" · ")}</div>
+    <div class="muted" style="margin-top:6px">Quốc gia: ${esc(c.game.jurisdiction)} · khoá ${c.keys.map((k) => esc(k.kid)).join(", ")}</div>`;
+
+  const anchors = cp.payload.anchors ?? [];
+  $("anchors").innerHTML = anchors.length
+    ? anchors.slice().reverse().map((a) => a.kind === "ronin"
+        ? `<div>⛓️ Ronin Saigon · <a href="https://saigon-explorer.roninchain.com/tx/${esc(a.ref.split(":")[1])}">${short(a.ref.split(":")[1], 18)}…</a> <span class="muted">checkpoint ${short(a.checkpoint, 10)}…</span></div>`
+        : `<div>₿ Bitcoin (OpenTimestamps) · <a download="checkpoint-${short(a.checkpoint, 10)}.ots" href="data:application/octet-stream;base64,${esc(a.ref)}">tải file .ots</a> <span class="muted">checkpoint ${short(a.checkpoint, 10)}… · kiểm bằng <code>ots upgrade</code> rồi <code>ots verify</code></span></div>`).join("")
+    : `<span class="muted">Chưa có neo nào trong checkpoint này.</span>`;
+
+  $("logcount").textContent = `(${entries.length})`;
+  $("log").innerHTML = entries.slice().reverse().slice(0, 150).map((e) => `
+    <details class="row"><summary><span class="tag t-${esc(e.payload.type)}">${esc(e.payload.type)}</span><span class="what">${describe(e.payload)}</span><span class="when">${time(e.payload.iat)}</span></summary>
+    <pre>${esc(JSON.stringify(e, null, 1))}</pre></details>`).join("") || `<span class="muted">Log trống.</span>`;
+
+  $("peers").innerHTML = (c.witnesses ?? []).map((o) => `game đối tác: <a href="${esc(o)}">${esc(new URL(o).host)}</a>`).join(" · ");
+}
+main().catch((e) => ($("checks").textContent = `Không tải được node: ${e.message}`));
+</script>
+</body>
+</html>
