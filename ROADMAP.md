@@ -29,7 +29,7 @@ Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đ�
 - [ ] Neo hằng ngày lên Ronin Saigon: code đã có, chờ owner đặt key làm secret (`firebase functions:secrets:set GNL_SAIGON_KEY`) rồi bind vào function
 - [x] Conformance test (`npm run conform -- <origin>`): pass cả 2 sandbox. Nó bắt được một lỗ SSRF (offer từ origin lạ làm server fetch bừa), đã vá: chỉ nhận offer từ đối tác
 - [x] `AGENTS.md` + MCP server (`mcp/server.mjs`, chỉ đọc): agent của game khác tự đọc SPEC, thử sandbox, chạy conformance và audit
-- [ ] Một game thật cắm vào node: ứng viên `apps/endless-run` (coin mỗi lượt, cần thêm ví coin lưu lại + tài khoản)
+- [x] Một game thật cắm vào node: Endless Run (https://endless-run.web.app). Coin mỗi lượt vào ví ở `gnl-endless`, nút "Carry them to Sandbox" ngay trên màn game over
 
 **Xong khi:** một lần chuyển đầy đủ chạy được cả hai chiều; auditor bắt đủ 5 kiểu gian lận; conformance test pass trên sandbox.
 
