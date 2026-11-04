@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gio-no-luc/gio-no-luc/schemas/gnl.schema.json",
+  "title": "Giờ Nổ Lực gnl/0 — envelopes and payloads (SPEC.md)",
+  "$ref": "#/$defs/envelope",
+  "$defs": {
+    "origin": { "type": "string", "pattern": "^https://[a-z0-9.-]+(:[0-9]+)?$", "maxLength": 253 },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{22,64}$" },
+    "hash": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+    "time": { "type": "string", "format": "date-time" },
+    "cgnl": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+    "name": { "type": "string", "maxLength": 64, "pattern": "^[^<>]*$" },
+    "thingId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+    "jwk": {
+      "type": "object",
+      "required": ["kty", "crv", "x", "kid"],
+      "properties": { "kty": { "const": "OKP" }, "crv": { "const": "Ed25519" }, "x": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" }, "kid": { "type": "string", "maxLength": 64 } }
+    },
+    "rate": {
+      "type": "object",
+      "required": ["id", "name", "unit", "cgnlPer"],
+      "additionalProperties": false,
+      "properties": { "id": { "$ref": "#/$defs/thingId" }, "name": { "$ref": "#/$defs/name" }, "unit": { "$ref": "#/$defs/name" }, "cgnlPer": { "type": "integer", "minimum": 1 } }
+    },
+    "base": {
+      "type": "object",
+      "required": ["type", "iss", "iat"],
+      "properties": { "iss": { "$ref": "#/$defs/origin" }, "aud": { "$ref": "#/$defs/origin" }, "iat": { "$ref": "#/$defs/time" }, "exp": { "$ref": "#/$defs/time" }, "id": { "$ref": "#/$defs/id" } }
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["payload", "sig"],
+      "additionalProperties": false,
+      "properties": {
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/$defs/card" },
+            { "$ref": "#/$defs/ticket" },
+            { "$ref": "#/$defs/offer" },
+            { "$ref": "#/$defs/accept" },
+            { "$ref": "#/$defs/burn" },
+            { "$ref": "#/$defs/grant" },
+            { "$ref": "#/$defs/refund" },
+            { "$ref": "#/$defs/commit" },
+            { "$ref": "#/$defs/checkpoint" },
+            { "$ref": "#/$defs/cosign" },
+            { "$ref": "#/$defs/proof" }
+          ]
+        },
+        "sig": {
+          "type": "object",
+          "required": ["kid", "value"],
+          "additionalProperties": false,
+          "properties": { "kid": { "type": "string", "maxLength": 64 }, "value": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" } }
+        }
+      }
+    },
+    "card": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "protocol", "game", "keys", "hoursPerDay", "pace", "exports", "imports", "policy"],
+      "properties": {
+        "type": { "const": "card" },
+        "protocol": { "const": "gnl/0" },
+        "game": {
+          "type": "object",
+          "required": ["name", "contact", "jurisdiction"],
+          "properties": { "name": { "$ref": "#/$defs/name" }, "contact": { "type": "string", "maxLength": 128 }, "jurisdiction": { "type": "string", "pattern": "^[A-Z]{2}$" } }
+        },
+        "keys": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/jwk" } },
+        "hoursPerDay": {
+          "type": "object",
+          "required": ["minor", "adult"],
+          "properties": { "minor": { "type": "number", "minimum": 0, "maximum": 16 }, "adult": { "type": "number", "minimum": 0, "maximum": 16 } }
+        },
+        "pace": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["burst", "perHour"],
+            "additionalProperties": false,
+            "properties": { "burst": { "type": "number", "minimum": 0 }, "perHour": { "type": "number", "minimum": 0 } }
+          }
+        },
+        "exports": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/rate" } },
+        "imports": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/rate" } },
+        "policy": {
+          "type": "object",
+          "required": ["lineStart", "lineCap", "upfront", "vestPerHour"],
+          "properties": {
+            "lineStart": { "$ref": "#/$defs/cgnl" },
+            "lineCap": { "$ref": "#/$defs/cgnl" },
+            "upfront": { "type": "number", "minimum": 0, "maximum": 1 },
+            "vestPerHour": { "$ref": "#/$defs/cgnl" }
+          }
+        },
+        "witnesses": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/origin" } }
+      }
+    },
+    "ticket": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "aud", "sub", "nonce", "exp"],
+      "properties": { "type": { "const": "ticket" }, "sub": { "$ref": "#/$defs/id" }, "nonce": { "$ref": "#/$defs/id" } }
+    },
+    "offer": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "id", "aud", "ticket", "player", "items", "cgnl", "commit", "exp"],
+      "properties": {
+        "type": { "const": "offer" },
+        "ticket": { "$ref": "#/$defs/envelope" },
+        "player": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": ["id", "qty", "cgnl"],
+            "additionalProperties": false,
+            "properties": { "id": { "$ref": "#/$defs/thingId" }, "qty": { "type": "number", "exclusiveMinimum": 0 }, "cgnl": { "$ref": "#/$defs/cgnl" } }
+          }
+        },
+        "cgnl": { "$ref": "#/$defs/cgnl" },
+        "commit": {
+          "type": "object",
+          "required": ["day", "root", "index", "proof"],
+          "properties": { "day": { "type": "string", "format": "date" }, "root": { "$ref": "#/$defs/hash" }, "index": { "type": "integer", "minimum": 0 }, "proof": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/hash" } } }
+        }
+      }
+    },
+    "accept": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "id", "aud", "offer", "cgnl", "grant", "upfront", "burnBy"],
+      "properties": {
+        "type": { "const": "accept" },
+        "offer": { "$ref": "#/$defs/hash" },
+        "cgnl": { "$ref": "#/$defs/cgnl" },
+        "grant": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "type": "object", "required": ["id", "qty"], "additionalProperties": false, "properties": { "id": { "$ref": "#/$defs/thingId" }, "qty": { "type": "number", "exclusiveMinimum": 0 } } }
+        },
+        "upfront": { "type": "number", "minimum": 0, "maximum": 1 },
+        "burnBy": { "$ref": "#/$defs/time" }
+      }
+    },
+    "burn": { "allOf": [{ "$ref": "#/$defs/base" }], "required": ["type", "id", "aud", "accept"], "properties": { "type": { "const": "burn" }, "accept": { "$ref": "#/$defs/hash" } } },
+    "grant": { "allOf": [{ "$ref": "#/$defs/base" }], "required": ["type", "id", "aud", "burn"], "properties": { "type": { "const": "grant" }, "burn": { "$ref": "#/$defs/hash" } } },
+    "refund": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "id", "offer", "why"],
+      "properties": { "type": { "const": "refund" }, "offer": { "$ref": "#/$defs/hash" }, "why": { "enum": ["expired", "cancelled", "refused"] } }
+    },
+    "commit": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "day", "root", "size"],
+      "properties": { "type": { "const": "commit" }, "day": { "type": "string", "format": "date" }, "root": { "$ref": "#/$defs/hash" }, "size": { "type": "integer", "minimum": 0 } }
+    },
+    "checkpoint": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "size", "root", "t"],
+      "properties": {
+        "type": { "const": "checkpoint" },
+        "size": { "type": "integer", "minimum": 0 },
+        "root": { "$ref": "#/$defs/hash" },
+        "t": { "$ref": "#/$defs/time" },
+        "anchors": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": ["kind", "ref"],
+            "properties": { "kind": { "enum": ["ots", "ronin"] }, "ref": { "type": "string", "maxLength": 4096 }, "checkpoint": { "$ref": "#/$defs/hash" } }
+          }
+        }
+      }
+    },
+    "cosign": { "allOf": [{ "$ref": "#/$defs/base" }], "required": ["type", "of", "checkpoint"], "properties": { "type": { "const": "cosign" }, "of": { "$ref": "#/$defs/origin" }, "checkpoint": { "$ref": "#/$defs/hash" } } },
+    "proof": {
+      "allOf": [{ "$ref": "#/$defs/base" }],
+      "required": ["type", "against", "rule", "evidence"],
+      "properties": {
+        "type": { "const": "proof" },
+        "against": { "$ref": "#/$defs/origin" },
+        "rule": { "enum": ["R2", "R3", "R4", "R7"] },
+        "evidence": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/envelope" } }
+      }
+    }
+  }
+}
