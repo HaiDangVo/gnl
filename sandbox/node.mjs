@@ -50,6 +50,6 @@ export async function startNode({ name, port, cheat = "", config = TOY }) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [name = "a", port = "4001", cheat = ""] = process.argv.slice(2);
   const n = await startNode({ name, port: +port, cheat });
-  n.newDay();
+  await n.newDay();
   console.log(`sandbox ${name} at ${n.origin}${cheat ? ` (cheat: ${cheat})` : ""}`);
 }

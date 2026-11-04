@@ -82,7 +82,7 @@ async function daily(origin) {
   const { s, g, save } = await load(origin);
   const today = realClock.today();
   if (s.lastDay !== today) {
-    g.newDay();
+    await g.newDay();
     await save(); // Its commitment is public before it asks anyone else for anything
     try {
       await g.witness();
@@ -94,7 +94,7 @@ async function daily(origin) {
   if (s.anchoredDay === today) return;
   s.anchoredDay = today; // Before anchoring: two writes at once don't spend the chain account's nonce twice
   await anchor(s);
-  g.commit(); // The anchors into the next signed checkpoint (and a fresh commitment: R2 counts days, not commitments)
+  await g.commit(); // The anchors into the next signed checkpoint (and a fresh commitment: R2 counts days, not commitments)
   await save();
 }
 

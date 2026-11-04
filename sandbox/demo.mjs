@@ -26,8 +26,8 @@ for (const s of SCENARIOS) {
   B.earn("bob", { level: 1 }, true);
   let n = 0;
   const day = async () => {
-    A.newDay();
-    B.newDay();
+    await A.newDay();
+    await B.newDay();
     // A day's play, scripted (`true`: past the online pace check) — the pace cheat fakes 100 000 gold on the third day
     A.earn("alice", { gold: 2000 + (s.name === "pace" && ++n === 3 ? 100_000 : 0), level: 1, gems: 5 }, true);
     B.earn("bob", { gold: 500 }, true);
