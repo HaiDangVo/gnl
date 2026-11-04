@@ -34,17 +34,22 @@ Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đ�
 
 **Xong khi:** một lần chuyển đầy đủ chạy được cả hai chiều; auditor bắt đủ 5 kiểu gian lận; conformance test pass trên sandbox.
 
-## Giai đoạn 2: Res World tham gia
+## Giai đoạn 2: Res World tham gia (beta, 2026-11-04)
 
-- [ ] Đo tốc độ thật mỗi tài nguyên từ các bản save đã verify (`checkDelta`: trung vị tăng/giờ)
-- [ ] Rate card Res World: xuất **mọi thứ**, kể cả tu vi (tụt cảnh giới); nhập cùng danh sách, tỉ giá ≥ tỉ giá xuất (R8)
-- [ ] Trang wiki "Giờ Nổ Lực": nhân vật của bạn đáng bao nhiêu giờ, chọn từng món / một phần / toàn bộ
-- [ ] Phía server: key sổ cái do server ghi (hold/burn/grant), `checkDelta` tính phần đã đi/đã đến, hạ save qua inbox
-- [ ] Trần giờ theo luật: Res World chưa biết tuổi người chơi, nên dùng mức `minor` = 1 giờ/ngày cho mọi tài khoản
-- [ ] MCP: các tool đọc (`gnl_spec`, `gnl_card`, `gnl_verify`, `gnl_quote`) trên `resworldMcp`
-- [ ] Chạy thử Res World ↔ sandbox, chỉ trên tài khoản test
+Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (code trong repo của game: `functions/gnlNode.js`, `functions/crossover.js`, thư viện này vendor vào `functions/gnl/`).
 
-**Xong khi:** tài khoản test chuyển được đi và về với sandbox, auditor không báo gì, save không bị `checkDelta` gắn cờ sai.
+- [x] Đo tốc độ thật từ lịch sử save đã verify (trung vị tăng mỗi giờ chơi), đóng băng cùng rate card
+- [x] Xuất: Coin Cash, Linh Thạch, tu vi từ trên xuống (cảnh giới tụt kéo theo thiên phú, hình thức 2, phi hành, đồ đang mặc); bản save mới phải qua `checkSnapshot`
+- [x] Nhập: CC hoặc Linh Thạch tuỳ người chơi chọn, 20% ngay, phần còn lại mở theo giờ chơi
+- [x] Trong game: Tài khoản → "Mang nỗ lực sang game khác"; trang wiki Giờ Nổ Lực
+- [x] Trần giờ 16 h/ngày (game 18+ từ v0.11.38)
+- [x] Chạy thật trên tài khoản test: Sandbox → RW, RW → Endless Run (CC), RW → Sandbox (tu vi), auditor sạch trên cả 3 game
+- [x] Lỗ tìm ra khi test: khôi phục save cũ sau khi đốt làm nhân đôi đồ. Đã vá (save vượt pace ở thứ đã rời đi bị từ chối 30 ngày sau khi chuyển), SPEC §13
+- [ ] Định giá tu vi chính xác hơn: tầng thấp đang bị làm tròn lên 1 cgnl mỗi 1% tầng (định giá cao). Đổi sang đơn vị "giờ tu vi", báo trước 30 ngày theo SPEC §4
+- [ ] Nhập tu vi (hiện chỉ nhập CC/Linh Thạch)
+- [ ] Neo Ronin cho Res World (hiện chỉ Bitcoin/OpenTimestamps)
+- [ ] MCP: tool đọc Giờ Nổ Lực trên `resworldMcp`
+- [ ] Mở beta cho mọi người chơi
 
 ## Giai đoạn 3: Công bố
 

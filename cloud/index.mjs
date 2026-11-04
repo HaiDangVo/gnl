@@ -33,9 +33,10 @@ const ENDLESS = {
 };
 const ENDLESS_ORIGIN = "https://gnl-endless.web.app";
 const SANDBOX = "https://gnl-sandbox.web.app";
+const RESWORLD = "https://resworld.web.app"; // Res World, the first real game (its node lives in its own functions)
 const GAMES = {
-  [ENDLESS_ORIGIN]: { name: "endless", config: { ...ENDLESS, peers: [SANDBOX], partners: [SANDBOX] } },
-  [SANDBOX]: { name: "sandbox", config: { ...TOY, name: "Sandbox (toy)", peers: [ENDLESS_ORIGIN], partners: [ENDLESS_ORIGIN] } },
+  [ENDLESS_ORIGIN]: { name: "endless", config: { ...ENDLESS, peers: [SANDBOX, RESWORLD], partners: [SANDBOX, RESWORLD] } },
+  [SANDBOX]: { name: "sandbox", config: { ...TOY, name: "Sandbox (toy)", peers: [ENDLESS_ORIGIN, RESWORLD], partners: [ENDLESS_ORIGIN, RESWORLD] } },
 };
 
 const live = {}; // origin → { s, g, save } for this instance

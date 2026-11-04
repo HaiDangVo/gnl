@@ -171,6 +171,7 @@ Each one names the attacker and what limits it. Anything still marked **open** i
 | Run code on a partner's server through an audit | A | `pace` is data, never code (§4) |
 | Make a game's server fetch any address (SSRF) by naming it as an offer's `iss` | anyone | A game fetches only partners' origins, checked **before** any fetch; a stranger's offer is refused unread (found by the conformance test) |
 | Read a player's whole history by replaying the public ticket as "consent" | anyone | Audits answered only for the offer's own `aud`, signature checked (§8) — found building the sandbox |
+| Restore an old copy of a save after its things were burnt, keeping both | player | The giving game MUST refuse a save that brings back what left (Res World: past its pace in what left, within 30 days of a crossover — refused, not just flagged). If it doesn't, R4 catches **the game** on the next audit — found testing Res World |
 | A stolen signing key | outsider | Bounded by the victim's lines; `revoke` entry; partners stop at that checkpoint |
 | Lie about a minor's age | player | Each game's own duty; a game that can't tell uses `minor` for everyone |
 

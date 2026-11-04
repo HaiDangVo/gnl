@@ -101,7 +101,8 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     },
     key,
   );
-  /** What this game gives for incoming effort: its `grantId`, as many as the cgnl buy (a game may decide otherwise). */
+  /** What this game gives for incoming effort: its `grantId`, as many as the cgnl buy — or the game's own choice, from
+   * the ticket its player asked for (`tk`: its uid and whatever the game kept with it). */
   const grantFor = config.grantFor ?? ((cgnl) => [{ id: config.grantId, qty: Math.floor(cgnl / imp[config.grantId]) }]);
 
   const pseudonym = (uid) => createHmac("sha256", s.secret).update(uid).digest("base64url");
@@ -195,10 +196,10 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   // --- The player's side ---------------------------------------------------------------------------------------
 
   /** As the receiving game: the one-time ticket a player carries to the game they leave (SPEC §5). */
-  function ticket(uid, to) {
+  function ticket(uid, to, keep = {}) {
     const sub = rid();
     const t = seal({ type: "ticket", iss: origin, iat: at(), aud: to, sub, nonce: rid(), exp: at(0.01) }, key);
-    s.tickets[sub] = { uid, nonce: t.payload.nonce, used: false };
+    s.tickets[sub] = { ...keep, uid, nonce: t.payload.nonce, used: false };
     return t;
   }
 
@@ -284,7 +285,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (why) throw fail(422, "R2", why);
     const week = Object.values(s.accepts).filter((x) => x.from === o.iss && x.acc.payload.iat > at(-7)).reduce((n, x) => n + x.acc.payload.cgnl, 0);
     if (week + o.cgnl > policy.lineStart) throw fail(429, "R5", `line: ${week} of ${policy.lineStart} taken this week`); // ponytail: the line doesn't grow yet
-    const grant = (await grantFor(o.cgnl, imp, tk.uid)).filter((g) => g.qty > 0);
+    const grant = (await grantFor(o.cgnl, imp, tk)).filter((g) => g.qty > 0);
     if (!grant.length) throw fail(422, "TOO_LITTLE", "too little effort to give anything for");
     tk.used = true;
     const acc = append({ type: "accept", id: o.id, aud: o.iss, offer: hashOf(o), cgnl: o.cgnl, grant, upfront: policy.upfront, burnBy: at(1) });
