@@ -1,0 +1,45 @@
+{
+  "functions": [
+    {
+      "source": "cloud",
+      "codebase": "gnl",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.log"
+      ],
+      "predeploy": [
+        "rm -rf \"$RESOURCE_DIR/lib\" && mkdir -p \"$RESOURCE_DIR/lib\" && cp -R ref sandbox \"$RESOURCE_DIR/lib/\""
+      ]
+    }
+  ],
+  "hosting": [
+    {
+      "site": "gnl-endless",
+      "public": "cloud/public",
+      "rewrites": [
+        {
+          "source": "**",
+          "function": {
+            "functionId": "gnl",
+            "region": "asia-southeast1"
+          }
+        }
+      ]
+    },
+    {
+      "site": "gnl-sandbox",
+      "public": "cloud/public",
+      "rewrites": [
+        {
+          "source": "**",
+          "function": {
+            "functionId": "gnlsandbox",
+            "region": "asia-southeast1"
+          }
+        }
+      ]
+    }
+  ]
+}

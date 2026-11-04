@@ -12,7 +12,7 @@ const SCENARIOS = [
   { name: "honest", expect: null },
   { name: "inflate", cheatA: "inflate", qty: 9000, expect: ["A", "R2"] },
   { name: "keep", cheatA: "keep", expect: ["A", "R4"] },
-  { name: "pace", cheatA: "pace", expect: ["A", "R3"] },
+  { name: "pace", expect: ["A", "R3"] },
   { name: "fork", fork: true, expect: ["A", "R7", "forked"] },
   { name: "nogrant", cheatB: "nogrant", expect: ["B", "R7", "no grant"] },
 ];
@@ -20,19 +20,23 @@ const SCENARIOS = [
 let port = 4100;
 let failed = 0;
 for (const s of SCENARIOS) {
-  const A = await startNode({ name: "a", port: ++port, cheat: s.cheatA, seed: { alice: { gold: 2000, level: 1, gems: 0 } }, grow: { alice: { gold: 2000, level: 1, gems: 5 } } });
-  const B = await startNode({ name: "b", port: ++port, cheat: s.cheatB, seed: { bob: { gold: 0, level: 1, gems: 0 } }, grow: { bob: { gold: 500 } } });
+  const A = await startNode({ name: "a", port: ++port, cheat: s.cheatA });
+  const B = await startNode({ name: "b", port: ++port, cheat: s.cheatB });
+  A.earn("alice", { gold: 2000, level: 1 }, true);
+  B.earn("bob", { level: 1 }, true);
+  let n = 0;
   const day = async () => {
     A.newDay();
     B.newDay();
+    // A day's play, scripted (`true`: past the online pace check) — the pace cheat fakes 100 000 gold on the third day
+    A.earn("alice", { gold: 2000 + (s.name === "pace" && ++n === 3 ? 100_000 : 0), level: 1, gems: 5 }, true);
+    B.earn("bob", { gold: 500 }, true);
     await A.witness([B.origin]);
     await B.witness([A.origin]);
     await B.runAudits();
   };
   try {
-    await A.witness([B.origin]);
-    await B.witness([A.origin]);
-    for (let i = 0; i < 4; i++) await day(); // Five days of alice's progress committed
+    for (let i = 0; i < 5; i++) await day(); // Five days of alice's progress committed
     const before = { alice: A.player("alice"), bob: B.player("bob") };
     const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], B.ticket("bob", A.origin));
     await day(); // A commits the day after the burn; B audits
@@ -54,7 +58,7 @@ for (const s of SCENARIOS) {
       assert.ok(hit, `expected ${rule} against ${against}, found ${JSON.stringify(found.map((f) => [who(f.against), f.rule, f.why]))}`);
       if (s.name === "inflate") assert.match(r.refused, /R2/, "B refused the offer itself");
       if (s.name === "keep" || s.name === "pace") {
-        assert.ok(B.suspended.has(A.origin), "B cut A off");
+        assert.ok(B.suspended.includes(A.origin), "B cut A off");
         assert.equal(after.bob.vesting, 0, "and took back what was still vesting");
       }
     }

@@ -36,7 +36,10 @@ Chi tiết: [SPEC.md](SPEC.md). Lộ trình: [ROADMAP.md](ROADMAP.md).
 | `schemas/gnl.schema.json` | JSON Schema cho rate card, các thông điệp và log |
 | `ref/gnl.js` | Code tham chiếu (chỉ dùng `node:crypto`): canonical JSON (RFC 8785), ký/kiểm Ed25519, cây Merkle của log (RFC 9162), luật R2, R3 và R8 |
 | `chain/` | Neo checkpoint lên Ronin (Saigon testnet / mainnet) |
-| `sandbox/` | Game sandbox nói `gnl/0` (`node.mjs`), auditor ai cũng chạy được (`auditor.mjs`), demo 1 lần sạch + 5 kiểu gian lận (`demo.mjs`) |
+| `sandbox/` | Game sandbox nói `gnl/0` (`game.mjs`), auditor ai cũng chạy được (`auditor.mjs`), conformance test (`conform.mjs`), demo 1 lần sạch + 5 kiểu gian lận (`demo.mjs`) |
+| `cloud/` | Hai sandbox đang chạy thật (Firebase) |
+| `mcp/server.mjs` | MCP server cho agent: đọc SPEC, xem rate card, chạy conformance, audit, kiểm envelope. Chỉ đọc, không giữ bí mật |
+| `AGENTS.md` | Hướng dẫn cho AI agent: giúp một game tham gia, luật khi sửa repo |
 
 ```sh
 npm install
@@ -45,7 +48,22 @@ npm run wallet               # tạo ví Saigon, xem số dư (lấy RON test: h
 npm run anchor               # neo một checkpoint mẫu lên Saigon
 npm run anchor -- verify <tx hash>
 npm run sandbox              # 2 game sandbox: 1 lần chuyển sạch + 5 kiểu gian lận, auditor phải bắt đủ
+npm run conform -- <origin>  # conformance test vào game của bạn
+npm run audit -- <origin>…   # auditor trên log công khai của các game
 ```
+
+## Sandbox đang chạy
+
+Đồ giả, không cần đăng nhập, ai cũng thử được:
+
+- https://gnl-endless.web.app: ví coin của game Endless Run
+- https://gnl-sandbox.web.app: game đồ chơi (vàng, cấp, ngọc)
+
+Mỗi ngày hai game tự commit, ký xác nhận log của nhau và neo checkpoint vào Bitcoin (OpenTimestamps). Các bước thử bằng curl: xem `AGENTS.md`, hoặc tool MCP `gnl_sandboxes`.
+
+## Cho AI agent
+
+Đọc [AGENTS.md](AGENTS.md). Gắn MCP: `claude mcp add gnl -- node /path/to/gnl/mcp/server.mjs`.
 
 ## Tham gia
 

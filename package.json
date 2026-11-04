@@ -13,9 +13,13 @@
     "wallet": "node chain/wallet.mjs",
     "anchor": "node chain/anchor.mjs",
     "sandbox": "node sandbox/demo.mjs",
-    "audit": "node sandbox/auditor.mjs"
+    "audit": "node sandbox/auditor.mjs",
+    "conform": "node sandbox/conform.mjs",
+    "mcp": "node mcp/server.mjs"
   },
   "dependencies": {
-    "viem": "2.57.7"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "viem": "2.57.7",
+    "zod": "4.6.7"
   }
 }

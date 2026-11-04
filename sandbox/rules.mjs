@@ -31,11 +31,12 @@ export async function publicOf(origin) {
 /** R1: signed by one of the game's listed keys, and claiming to be from it. */
 export const signedBy = (env, pub) => env?.payload?.iss === pub.origin && opens(env, pub.card.payload.keys);
 
-/** A player's leaf `c` ({day, s, index, size, proof}) is under the game's logged commitment of that day. */
-export function provedIn(pub, p, c) {
-  const commit = pub.entries.find((e) => type("commit")(e) && e.payload.day === c?.day)?.payload;
-  return !!commit && commit.size === c.size && verifyInclusion(leafOf(p, c.day, c.s), c.index, c.size, c.proof, commit.root);
-}
+/** A player's leaf `c` ({day, s, index, size, proof}) is under one of the game's logged commitments of that day (a
+ * game may commit again the same day when someone joins: R2 counts days, not commitments). */
+export const provedIn = (pub, p, c) =>
+  pub.entries.some(
+    (e) => type("commit")(e) && e.payload.day === c?.day && e.payload.size === c.size && verifyInclusion(leafOf(p, c.day, c.s), c.index, c.size, c.proof, e.payload.root),
+  );
 
 /** R2: an offer within days since the player's first commitment × the card's hours a day, counting earlier offers. */
 export function r2(pub, offer) {

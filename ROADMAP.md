@@ -24,9 +24,11 @@ Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đ�
 - [x] **Auditor** (`npm run audit -- <origin>…`): đọc mọi log, kiểm R1, R2, R7 (hứa mà không cấp, fork), kiểm lại mọi fraud proof R3/R4 game khác đã ghi
 - [x] 5 kiểu gian lận cài sẵn, bắt đủ cả 5: vượt trần giờ (R2), đốt mà vẫn giữ (R4), tăng vượt pace (R3), fork log (R7), nhận cam kết mà không cấp (R7). Đã thử phá luật thì demo báo đỏ đúng chỗ
 - [x] Tìm thêm lỗ khi làm: ticket công khai không được coi là sự đồng ý cho audit (SPEC §8, §13)
-- [ ] Neo hằng ngày: OpenTimestamps + Ronin Saigon (script neo đã có, chưa gắn vào vòng ngày)
-- [ ] Đưa lên mạng thật: mỗi sandbox là một URL HTTPS (free tier), lưu bền
-- [ ] Conformance test: một game khác chạy vào URL của mình để biết làm đúng SPEC chưa
+- [x] Đưa lên mạng: https://gnl-endless.web.app và https://gnl-sandbox.web.app (Firebase Functions sau Hosting, lưu Firestore, mỗi ngày tự commit, ký chéo, audit)
+- [x] Neo hằng ngày bằng OpenTimestamps (Bitcoin)
+- [ ] Neo hằng ngày lên Ronin Saigon: code đã có, chờ owner đặt key làm secret (`firebase functions:secrets:set GNL_SAIGON_KEY`) rồi bind vào function
+- [x] Conformance test (`npm run conform -- <origin>`): pass cả 2 sandbox. Nó bắt được một lỗ SSRF (offer từ origin lạ làm server fetch bừa), đã vá: chỉ nhận offer từ đối tác
+- [x] `AGENTS.md` + MCP server (`mcp/server.mjs`, chỉ đọc): agent của game khác tự đọc SPEC, thử sandbox, chạy conformance và audit
 - [ ] Một game thật cắm vào node: ứng viên `apps/endless-run` (coin mỗi lượt, cần thêm ví coin lưu lại + tài khoản)
 
 **Xong khi:** một lần chuyển đầy đủ chạy được cả hai chiều; auditor bắt đủ 5 kiểu gian lận; conformance test pass trên sandbox.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/gio-no-luc/gio-no-luc/schemas/gnl.schema.json",
+  "$id": "https://github.com/HaiDangVo/gnl/schemas/gnl.schema.json",
   "title": "Giờ Nổ Lực gnl/0 — envelopes and payloads (SPEC.md)",
   "$ref": "#/$defs/envelope",
   "$defs": {

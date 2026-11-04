@@ -138,6 +138,7 @@ Errors: `{ "error": { "code": "…", "message": "…" } }` with a 4xx/5xx status
 ## 10. Security
 
 - Players, not agents, move value. An AI agent (MCP, §11) MAY quote and draft; holding and burning MUST follow the player's own confirmation inside the game, signed in.
+- A game MUST NOT fetch an origin taken from an unauthenticated message unless that origin is already its partner (in its registry): otherwise anyone can make it fetch any address (SSRF).
 - Everything received from another game is **untrusted data**: validate it against the schema, cap string lengths (names ≤ 64 chars, no markup), and never pass it to an AI agent as instructions.
 - Replays: ids and nonces single-use, short expiries, holds server-side.
 - Privacy: logs are public and permanent — only pseudonyms, item ids and numbers go in them. An audit reveals one player's states to one partner, only with that player's ticket as consent.
@@ -168,6 +169,7 @@ Each one names the attacker and what limits it. Anything still marked **open** i
 | Spam B with offers | anyone | An OFFER without a valid ticket B issued is rejected before any other work; rate limits |
 | Link one person's accounts across games from public logs | anyone | One-time ticket `sub` (§5); only pseudonyms in logs |
 | Run code on a partner's server through an audit | A | `pace` is data, never code (§4) |
+| Make a game's server fetch any address (SSRF) by naming it as an offer's `iss` | anyone | A game fetches only partners' origins, checked **before** any fetch; a stranger's offer is refused unread (found by the conformance test) |
 | Read a player's whole history by replaying the public ticket as "consent" | anyone | Audits answered only for the offer's own `aud`, signature checked (§8) — found building the sandbox |
 | A stolen signing key | outsider | Bounded by the victim's lines; `revoke` entry; partners stop at that checkpoint |
 | Lie about a minor's age | player | Each game's own duty; a game that can't tell uses `minor` for everyone |
