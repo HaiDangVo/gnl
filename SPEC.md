@@ -121,6 +121,17 @@ Two games cross over only under a **contract**: one calendar month (UTC) at a ti
   - a person to answer for it (`game.contact`), and for a council, its members (§14).
   A new start begins at `lineStart`; nothing a candidate claims raises it.
 
+### 5.2 Sandbox, then live
+
+Every game has a **stage** in its card: `"sandbox"` or `"live"`. A game starts as a sandbox and goes live **once, for good**: the switch is a new card in its log, and no sandbox card may follow a live one.
+
+- **Sandbox.** Its things are toys. It runs the whole protocol — card, log, commitments, contracts, crossovers, audits — so its developer can try every step against the network's sandboxes (https://gnl-sandbox.web.app, https://gnl-endless.web.app) and fix what breaks. It MAY start over (new key, empty log): a sandbox's forked history is no fraud proof (§7 R7 applies to live games).
+- **Live.** Its things are real, its log append-only for good. It crosses with sandboxes **only for its test accounts** (the game's own list, a game's own risk), and marks those entries `test: true` — offers and accepts. Real accounts cross only with live partners, under contract (§5.1).
+- **Going live** needs, in its own log while still a sandbox, at least one crossover out (a `burn`) and one in (a `grant`): the workflow tried both ways. The conformance test checks the stage, the one-way switch, the tried workflow and the `test` marks (`npm run conform`).
+- A live game's partners count its days (`partnerMinDays`, §5.1) over its whole log; the day it went live is public in it.
+
+For a developer: build against `stage: "sandbox"`, open a join issue to be added to the sandboxes' partners, cross both ways until everything passes, then set `stage: "live"` and ask live games for contracts (JOINING.md).
+
 ## 6. Logs, commitments, anchors
 
 ### 6.1 Each game's log
@@ -150,7 +161,7 @@ A player's **first committed day** is the first `commit` that contains their pse
 | R4 | **Burn shows**: on audit, the first state committed after a BURN no longer holds what was burned | audit reply | fraud proof |
 | R5 | **Trust line**: B accepts from A at most `line(A)` cgnl a week, all A's players together; net (what B took from A minus what A took from B, last 90 days) at most 4 × `line(A)`. `line(A) = min(lineCap, lineStart × 2^(n−1))`, n the months their contract has run unbroken (§5.1) — by this formula only | B's policy + both logs | B refuses; going over it is B's own risk |
 | R6 | **Vesting**: of a grant, `upfront` at once, the rest unlocking `vestPerHour` cgnl per hour the player actually plays in B (B's own measure) | B | — |
-| R7 | **Promises kept**: an ACCEPT followed by its BURN has a GRANT in B's log before `burnBy` + 24 h; a checkpoint is never forked (two signed checkpoints, same size, different roots) | public logs | fraud proof |
+| R7 | **Promises kept**: an ACCEPT followed by its BURN has a GRANT in B's log before `burnBy` + 24 h; a checkpoint is never forked (two signed checkpoints, same size, different roots) — for a live game; a sandbox may start over (§5.2) | public logs | fraud proof |
 | R8 | **No arbitrage** within each card | the card | reject the card |
 | R9 | **No pass-through**: what a player received through this protocol never leaves again. A game MUST refuse an OFFER for more than the player's exportable state is worth minus everything that player ever received (in cgnl, as accepted). Only effort spent in the game itself leaves it, so a trusted game can't relay another game's effort onward | the giving game itself | refuse |
 | R10 | **One source at a time, and a receiving bound**: a receiving account takes from **one** account of each partner game at a time, and that account gives to it alone (B binds them at the first ACCEPT). To change, the player undoes the link, and no new link forms on either side for **7 days** (a week: the line's own rhythm); relinking the same pair is free. And it takes at most `hoursPerDay` for each day since its own first commitment in B. Ten accounts elsewhere can't feed one here, nor hop to the next when one is blocked, nor a fresh account here take 500 hours. **Every link is logged**: `link` `{aud: A, holder, source, op: "on" \| "off"}` — `holder` B's pseudonym of its account toward A (`HMAC(secret, uid ‖ A)`: it links that account's crossovers from A, nothing else), `source` A's pseudonym of the giving account (its offers' `player`) — and each ACCEPT names its `holder`. So the rule is checked from the logs alone: one live link per holder and per source, a week after an `off`, every accept's holder linked to the very account that offered (`links()` in `sandbox/rules.mjs`; the auditor and the conformance test run it) | B's log, A's offers | refuse; anyone can check |

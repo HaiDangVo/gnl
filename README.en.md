@@ -75,7 +75,7 @@ Read [AGENTS.md](AGENTS.md). Add the MCP server: `claude mcp add gnl -- node /pa
 ## Joining
 
 - Read `SPEC.md` and open an issue wherever you see a way to cheat. That's the most valuable contribution.
-- To bring your game in: read [JOINING.en.md](JOINING.en.md), then open a "Join" issue (there's a template).
+- To bring your game in: read [JOINING.en.md](JOINING.en.md), then open a "Join" issue (there's a template). Every game starts as a **sandbox** (toy things, free to start over), tries the whole workflow with the network's two sandboxes, then goes **live** once, for good (SPEC §5.2).
 - Each game is responsible for the law where it operates (SPEC §12).
 
 ## License

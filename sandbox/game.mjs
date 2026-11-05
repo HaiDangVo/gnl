@@ -3,7 +3,7 @@
  * crossover, and audits — over a plain JSON state `s` the caller keeps (memory, a Firestore doc…) and two adapters
  * the game supplies:
  *
- *   players — uids() who to commit · state(uid) their exportable things as numbers · burn(uid, items) take them away
+ *   players — test?(uid) a test account (may cross with sandboxes, §5.2) · uids() who to commit · state(uid) their exportable things as numbers · burn(uid, items) take them away
  *             (all or nothing, throws when short) · grant(uid, thing, qty, {from, id, upfront}) give · clawback(from)
  *             what hasn't vested from a game · clawbackOne(uid, id) from one crossover (a void, §8.1)
  *   days    — put(day, {leaves, states}) · get(day): each day's commitment, its leaves and the salted states behind them
@@ -19,7 +19,7 @@
  */
 import { createHmac, randomBytes } from "node:crypto";
 import { contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
-import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stateHash, UNLINK_DAYS } from "./rules.mjs";
+import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stageOf, stateHash, UNLINK_DAYS } from "./rules.mjs";
 
 const DAY = 86_400_000;
 const rid = () => randomBytes(16).toString("base64url");
@@ -67,6 +67,7 @@ export function memoryPlayers(s) {
       p.state[thing] = (p.state[thing] ?? 0) + up;
       p.vesting.push({ from, crossover: id, id: thing, left: qty - up });
     },
+    test: async (uid) => uid.startsWith("test"), // The demo's test accounts
     async clawbackOne(uid, id) {
       for (const v of s.players[uid]?.vesting ?? []) if (v.crossover === id) v.left = 0;
     },
@@ -100,6 +101,14 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   const exp = Object.fromEntries(config.items.map((r) => [r.id, r.cgnlPer]));
   const imports = config.imports ?? config.items.map((r) => ({ ...r, cgnlPer: Math.ceil(r.cgnlPer * 1.5) })); // R8: in costs more than out
   const imp = Object.fromEntries(imports.map((r) => [r.id, r.cgnlPer]));
+  // §5.2: a game starts as a sandbox (toy things, free to start over) and goes live once, for good
+  const stage = config.stage === "live" ? "live" : "sandbox";
+  /** Live ↔ sandbox: only the live game's test accounts cross, and their entries say `test` (§5.2). */
+  const testOnly = async (pub, uid) => {
+    if (stage !== "live" || stageOf(pub.card.payload) === "live") return {};
+    if (!(await players.test?.(uid))) throw fail(403, "SANDBOX", "that game is a sandbox, its things toys: only this game's test accounts cross with it");
+    return { test: true };
+  };
   const policy = { lineStart: 10_000, lineCap: 1_000_000, upfront: 0.2, vestPerHour: 300, ...config.policy };
   /** The card's content: the config, and the council as the log has it (§14). */
   const cardBody = () => {
@@ -107,7 +116,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     return {
       type: "card", protocol: "gnl/0", iss: origin, game: { name: config.name, contact: config.contact, jurisdiction: "VN" },
       keys: [s.key.jwk], hoursPerDay: config.hoursPerDay ?? { minor: 1, adult: 16 }, pace: config.pace, exports: config.items, imports, policy,
-      witnesses: config.peers ?? [], effort: `${origin}/gnl/effort.json`,
+      witnesses: config.peers ?? [], effort: `${origin}/gnl/effort.json`, stage,
       ...(c.members.length ? { council: c.members, master: c.master } : {}),
     };
   };
@@ -228,7 +237,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       const pub = await publicOf(o);
       if (merkleRoot(pub.entries) !== pub.checkpoint.payload.root) throw new Error(`${o} serves entries that don't match its checkpoint`);
       const last = s.log.findLast((e) => e.payload.type === "cosign" && e.payload.of === o)?.payload.checkpoint;
-      if (last && merkleRoot(pub.entries.slice(0, last.payload.size)) !== last.payload.root) {
+      if (last && merkleRoot(pub.entries.slice(0, last.payload.size)) !== last.payload.root && stageOf(pub.card.payload) === "live") {
         append({ type: "proof", against: o, rule: "R7", why: `forked log: no longer extends its checkpoint of size ${last.payload.size}`, evidence: [last, pub.checkpoint] });
         await punish(o);
         continue;
@@ -301,6 +310,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const unbound = contractAt({ origin, entries: s.log }, pubTo, at());
     if (unbound) throw fail(403, "CONTRACT", unbound);
     if (paused(to)) throw fail(403, "PAUSED", "crossing with that game is paused by this game's council (§14)");
+    const test = await testOnly(pubTo, uid);
     // R9, no pass-through: what came in from other games never leaves again — only effort spent here does
     const received = Object.values(s.accepts).filter((x) => x.uid === uid && s.grants[x.acc.payload.id]).reduce((n, x) => n + x.acc.payload.cgnl, 0);
     const mine = worth(Object.entries(st).map(([id, qty]) => ({ id, qty })).filter((it) => exp[it.id])) - received;
@@ -309,7 +319,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (!(await days.get(today()))?.leaves.some((l) => l.p === p)) await commit(); // Not in today's commitment yet (joined since)
     const offer = append({
       type: "offer", id: rid(), aud: to, ticket: tk, player: p, items: rated, cgnl: rated.reduce((n, it) => n + it.cgnl, 0),
-      first: await proofFor(p, s.first[p]), commit: await proofFor(p, today()), exp: at(1),
+      first: await proofFor(p, s.first[p]), commit: await proofFor(p, today()), exp: at(1), ...test,
     });
     if (cheat !== "inflate") {
       const why = r2({ origin, card, entries: s.log }, offer);
@@ -401,11 +411,12 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const burnt = new Set(s.log.filter((e) => e.payload.type === "burn" && e.payload.aud === o.iss).map((e) => e.payload.id));
     const gave = s.log.filter((e) => e.payload.type === "offer" && e.payload.aud === o.iss && e.payload.iat > since && burnt.has(e.payload.id)).reduce((n, e) => n + e.payload.cgnl, 0);
     if (took - gave + o.cgnl > 4 * line) throw fail(429, "R5", `net: ${took - gave} of ${4 * line} taken from that game in 90 days`);
+    const test = await testOnly(a, tk.uid);
     const grant = (await grantFor(o.cgnl, imp, tk)).filter((g) => g.qty > 0);
     if (!grant.length) throw fail(422, "TOO_LITTLE", "too little effort to give anything for");
     tk.used = true;
     if (!linked) append(link);
-    const acc = append({ type: "accept", id: o.id, aud: o.iss, offer: hashOf(o), cgnl: o.cgnl, grant, upfront: policy.upfront, burnBy: at(1), holder });
+    const acc = append({ type: "accept", id: o.id, aud: o.iss, offer: hashOf(o), cgnl: o.cgnl, grant, upfront: policy.upfront, burnBy: at(1), holder, ...test });
     s.accepts[hashOf(acc.payload)] = { acc, uid: tk.uid, from: o.iss, offer: env };
     sign();
     return acc;

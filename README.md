@@ -75,7 +75,7 @@ Mở thẳng hai link trên là thấy trang cho người xem: bảng quy đổi
 ## Tham gia
 
 - Đọc `SPEC.md`, mở issue nếu thấy chỗ nào để lừa được. Đây là phần góp ý quý nhất.
-- Muốn cho game của bạn tham gia: đọc [JOINING.md](JOINING.md), rồi mở issue "Xin gia nhập" (có mẫu).
+- Muốn cho game của bạn tham gia: đọc [JOINING.md](JOINING.md), rồi mở issue "Xin gia nhập" (có mẫu). Mọi game bắt đầu là **sandbox** (đồ chơi, được làm lại từ đầu), thử trọn quy trình với hai sandbox của mạng, rồi mới lên **live** một lần, không quay lại (SPEC §5.2).
 - Mỗi game tự chịu trách nhiệm về pháp luật nơi mình hoạt động (SPEC §12).
 
 ## Giấy phép

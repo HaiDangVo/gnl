@@ -76,6 +76,7 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] Cutting what hasn't been handed over (SPEC §8.2, `cut`): a receiving game fixing its own pricing mistake, nobody owes. Res World cut what Bọ Chét hadn't unlocked from the Sandbox (the master's order)
 - [x] R10 logged: `link` on/off, each accept naming its `holder`; `links()` checks it from the log, the auditor against the giving game's offers, conformance too
 - [x] Endless Run is the second sandbox: Res World's real accounts cross with neither
+- [x] Sandbox, then live (SPEC §5.2): `stage` in the card; a sandbox may start over, no fork; live once, after trying both ways; a live game crosses with sandboxes only for its test accounts, marked `test`. All checked by conformance (demo `stage`)
 - [ ] Res World: voting in game, `proposal` / `tally` in its log (backlog #368)
 - [ ] Protocol votes: each member game logs a `proposal` for a SPEC pull request, combined with `tallyProtocol()`
 

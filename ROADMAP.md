@@ -76,6 +76,7 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] Thu phần chưa trao (SPEC §8.2, `cut`): game nhận tự sửa lỗi giá của mình, không ai nợ. Res World thu phần chưa mở của Bọ Chét từ Sandbox (lệnh của master)
 - [x] R10 ghi log: `link` on/off, mỗi accept ghi `holder`; `links()` kiểm từ log, auditor đối chiếu với offer của game gửi, conformance kiểm
 - [x] Endless Run là sandbox thứ hai: tài khoản thật của Res World không chuyển với sandbox nào
+- [x] Sandbox rồi mới live (SPEC §5.2): `stage` trong rate card; sandbox được làm lại từ đầu, không tính fork; lên live một lần, phải thử đủ hai chiều trước; game live chỉ cho tài khoản test chuyển với sandbox, đánh dấu `test`. Conformance kiểm hết (demo `stage`)
 - [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
 - [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
 

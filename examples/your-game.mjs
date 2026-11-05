@@ -57,6 +57,7 @@ const config = {
   partners: [], // Origins you hold contracts with (SPEC §5.1); nobody else is fetched or accepted
   peers: [], // The games you witness
   sandbox: false, // No /dev doors: your players act through your game, signed in
+  stage: "sandbox", // SPEC §5.2: try everything with the two sandboxes first; "live" once, for good (conform checks)
 };
 
 const s = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : freshState("your-game", new Date().toISOString());

@@ -32,6 +32,9 @@ const SCENARIOS = [
   // §14: B's council, mia (master) and ned. Mia alone can't seat a friend or unseat ned; with ned she can. A price
   // mistake of B's is cut by the council, no one owes. Every act an `order` with its members' ballots, in B's log
   { name: "council", council: true },
+  // §5.2: B is still a sandbox, A live. Alice can't take toy things into A, A's test account can; B starts over (a
+  // new log) and that's no fork — a live game can't
+  { name: "stage", stageB: "sandbox" },
 ];
 
 /** A council member of the game at `origin`: their own key, their consent; `vote(order)` signs their yes. */
@@ -44,10 +47,10 @@ const member = (origin, account, master) => {
 let port = 4100;
 let failed = 0;
 for (const s of SCENARIOS) {
-  const A = await startNode({ name: "a", port: ++port, cheat: s.cheatA });
+  const A = await startNode({ name: "a", port: ++port, cheat: s.cheatA, config: { ...TOY, stage: "live" } });
   const bOrigin = `http://localhost:${++port}`;
   const crew = s.council && [member(bOrigin, "mia", true), member(bOrigin, "ned")];
-  const B = await startNode({ name: "b", port, cheat: s.cheatB, config: crew ? { ...TOY, council: crew.map((c) => c.seat) } : TOY });
+  const B = await startNode({ name: "b", port, cheat: s.cheatB, config: { ...TOY, stage: s.stageB ?? "live", ...(crew ? { council: crew.map((c) => c.seat) } : {}) } });
   A.earn("alice", { gold: 2000, level: 1 }, true);
   B.earn("bob", { level: 1 }, true);
   let n = 0;
@@ -70,6 +73,19 @@ for (const s of SCENARIOS) {
     if (s.refused) {
       await assert.rejects(A.cross("alice", B.origin, [{ id: "gold", qty: 3000 }], tk), s.refused);
       console.log(`ok    ${s.name.padEnd(8)} refused: no contract for next month in this one's last week`);
+      continue;
+    }
+    if (s.stageB) {
+      await assert.rejects(A.cross("alice", B.origin, [{ id: "gold", qty: 3000 }], tk), /sandbox/, "alice, a real account at a live game, and a sandbox");
+      A.earn("tester", { gold: 2000 }, true);
+      await day();
+      const ok = await A.cross("tester", B.origin, [{ id: "gold", qty: 500 }], B.ticket("bob", A.origin));
+      assert.ok(ok.grant, "A's test account crosses");
+      assert.equal(ok.offer.payload.test, true, "and its offer says test");
+      B.rewrite(); // B starts over
+      await day();
+      assert.deepEqual(await audit([A.origin, B.origin]), [], "a sandbox starting over is no fork");
+      console.log(`ok    ${s.name.padEnd(8)} refused: alice (live A) → sandbox B; A's test account crossed, marked test; B's new history no fork`);
       continue;
     }
     const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], tk);

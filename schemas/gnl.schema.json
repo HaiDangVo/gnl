@@ -388,6 +388,13 @@
           "type": "string",
           "maxLength": 64,
           "description": "SPEC §14: the council member who is the game's master"
+        },
+        "stage": {
+          "enum": [
+            "sandbox",
+            "live"
+          ],
+          "description": "SPEC §5.2: a sandbox (toy things, may start over) until it goes live, once"
         }
       }
     },
@@ -479,6 +486,10 @@
         },
         "first": {
           "$ref": "#/$defs/leaf"
+        },
+        "test": {
+          "const": true,
+          "description": "SPEC §5.2: a live game's test account crossing with a sandbox"
         }
       }
     },
@@ -541,6 +552,10 @@
           "type": "string",
           "maxLength": 64,
           "description": "R10: the game's pseudonym of the receiving account toward this partner; its live `link`"
+        },
+        "test": {
+          "const": true,
+          "description": "SPEC §5.2: a live game's test account crossing with a sandbox"
         }
       }
     },

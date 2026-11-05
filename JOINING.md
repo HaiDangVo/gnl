@@ -8,7 +8,7 @@ Cho người làm game (và AI agent của họ) muốn game mình nối vào Gi
 
 1. **Server giữ dữ liệu thật.** Thứ người chơi mang đi phải nằm trên server, server đốt được và cấp được. Game tin save từ máy người chơi thì không đốt chắc được: người chơi gửi lại save cũ là đồ quay về (SPEC §13; Res World đã vấp lỗi này hai lần).
 2. **Một địa chỉ HTTPS** (origin) làm danh tính của game, và một khoá ký Ed25519 trong kho bí mật.
-3. **Node giao thức.** Không cần viết từ đầu: `sandbox/game.mjs` là thư viện đầy đủ (rate card, log, cam kết mỗi ngày, hai chiều chuyển, audit, hợp đồng, huỷ và phạt). Bạn chỉ viết:
+3. **Node giao thức**, bắt đầu ở giai đoạn sandbox (SPEC §5.2): đồ là đồ chơi, thử thoải mái với hai sandbox của mạng, rồi mới lên live. Không cần viết từ đầu: `sandbox/game.mjs` là thư viện đầy đủ (rate card, log, cam kết mỗi ngày, hai chiều chuyển, audit, hợp đồng, huỷ và phạt). Bạn chỉ viết:
    - `players`: đọc thứ mang đi được của một tài khoản, đốt, cấp, thu hồi.
    - `days`: lưu cam kết mỗi ngày (bảng bất kỳ).
    - cấu hình: tên, thứ xuất/nhập và giá, `pace`.
@@ -22,9 +22,11 @@ Cho người làm game (và AI agent của họ) muốn game mình nối vào Gi
 
 | Bước | Làm gì | Bao lâu |
 |---|---|---|
-| 1 | Chạy local: `npm install && npm run sandbox` để xem toàn bộ luật chạy, rồi gắn node vào game của bạn | 1–2 ngày cho một AI agent, nếu game đã có server và database |
-| 2 | Đưa lên mạng; `npm run conform -- https://game-cua-ban` đến khi không còn FAIL | trong ngày |
-| 3 | Mở issue **"Xin gia nhập"** trên GitHub (mẫu có sẵn). Một bot tự chạy conformance và audit vào origin của bạn rồi đăng kết quả ngay dưới issue. Muốn thử chuyển thật với hai sandbox thì ghi vào đó: sandbox thêm bạn vào danh sách đối tác và ký hợp đồng trong ngày | 1 ngày |
+| 1 | Chạy local: `npm install && npm run sandbox` để xem toàn bộ luật chạy, rồi gắn node vào game của bạn với `stage: "sandbox"` (SPEC §5.2) | 1–2 ngày cho một AI agent, nếu game đã có server và database |
+| 2 | Đưa lên mạng, vẫn là sandbox; `npm run conform -- https://game-cua-ban` đến khi không còn FAIL | trong ngày |
+| 3 | Mở issue **"Xin gia nhập"** trên GitHub (mẫu có sẵn). Bot tự chạy conformance và audit rồi đăng kết quả dưới issue; hai sandbox của mạng thêm bạn làm đối tác và ký hợp đồng trong ngày | 1 ngày |
+| 3b | **Thử thật với hai sandbox**: chuyển đi và nhận về ít nhất một lần mỗi chiều, sửa lỗi đến khi chạy trơn. Ở giai đoạn sandbox đồ là đồ chơi, được làm lại từ đầu (khoá mới, log mới) mà không bị tính là gian lận | tuỳ bạn |
+| 3c | **Lên live**: đổi `stage: "live"` (một lần, không quay lại). Conformance kiểm: đã thử đủ hai chiều khi còn là sandbox, và từ nay mọi lần chuyển với sandbox phải là tài khoản test của bạn (đánh dấu `test`) | ngay |
 | 4 | Chạy đủ số ngày có cam kết liên tục mà game kia yêu cầu (`policy.partnerMinDays` trong rate card của họ). Res World hiện cần **7 ngày**, sẽ tăng dần tới 30 khi mạng lưới lớn lên (SPEC §5.1) | 7 ngày |
 | 5 | Game thật xem xét: tuổi log, rate card, dòng chảy (`npm run audit`), người chịu trách nhiệm, rồi bỏ phiếu (SPEC §14) | vài ngày |
 | 6 | Hai bên ghi `contract` của tháng vào log của mình. **Có hiệu lực ngay khi đủ hai chữ ký**, hết tháng thì gia hạn trong 7 ngày cuối | ngay |

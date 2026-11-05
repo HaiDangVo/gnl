@@ -250,7 +250,7 @@ function render() {
     <div><b>${T("Hạn mức nhận mỗi tuần từ một game", "Weekly line per partner")}</b>: ${gnl(c.policy.lineStart)}, ${T("nhân đôi mỗi tháng hợp đồng được gia hạn, tối đa", "doubling each month the contract is renewed, up to")} ${gnl(c.policy.lineCap)}</div>
     <div><b>${T("Nhận ngay", "At once")}</b>: ${Math.round(c.policy.upfront * 100)}%, ${T("phần còn lại mở dần khi chơi", "the rest unlocks with play")}</div>
     <div><b>${T("Tốc độ tối đa", "Pace")}</b>: ${Object.entries(c.pace).map(([f, g]) => `${esc(f)} ${g.burst} + ${g.perHour}/${T("giờ", "h")}`).join(" · ")}</div>
-    <div class="muted" style="margin-top:6px">${T("Quốc gia", "Jurisdiction")}: ${esc(c.game.jurisdiction)} · ${T("khoá", "keys")} ${c.keys.map((k) => esc(k.kid)).join(", ")}</div>`;
+    <div class="muted" style="margin-top:6px"><b>${c.stage === "live" ? T("Live: đồ thật", "Live: real things") : T("Sandbox: đồ chơi, được làm lại từ đầu", "Sandbox: toy things, may start over")}</b> · ${T("Quốc gia", "Jurisdiction")}: ${esc(c.game.jurisdiction)} · ${T("khoá", "keys")} ${c.keys.map((k) => esc(k.kid)).join(", ")}</div>`;
 
   const basis = { measured: T("đo từ người chơi", "measured"), design: T("theo thiết kế", "by design"), declared: T("tự khai", "declared"), guess: T("ước đoán", "a guess") };
   $("effort").innerHTML = effort?.things?.length

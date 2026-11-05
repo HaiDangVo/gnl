@@ -28,6 +28,9 @@ export async function publicOf(origin) {
   return pub;
 }
 
+/** §5.2: a card's stage — "live", or a sandbox (also a card from before stages: never taken for live). */
+export const stageOf = (card) => (card?.stage === "live" ? "live" : "sandbox");
+
 /** R1: signed by one of the game's listed keys, and claiming to be from it. */
 export const signedBy = (env, pub) => env?.payload?.iss === pub.origin && opens(env, pub.card.payload.keys);
 
@@ -76,7 +79,7 @@ export function forks(pubs) {
     for (const cos of w.entries.filter(type("cosign"))) {
       const x = pubs.find((p) => p.origin === cos.payload.of);
       const cp = cos.payload.checkpoint;
-      if (x && signedBy(cp, x) && merkleRoot(x.entries.slice(0, cp.payload.size)) !== cp.payload.root)
+      if (x && stageOf(x.card.payload) === "live" && signedBy(cp, x) && merkleRoot(x.entries.slice(0, cp.payload.size)) !== cp.payload.root)
         out.push({ against: x.origin, rule: "R7", why: `forked log: its checkpoint of size ${cp.payload.size}, co-signed by ${w.origin}, no longer matches`, evidence: [cp, x.checkpoint] });
     }
   return out;

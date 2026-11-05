@@ -8,7 +8,7 @@ For game developers (and their AI agents) who want their game on Giờ Nổ Lự
 
 1. **A server that holds the real data.** What players carry out must live on your server, which burns and grants it. A game that trusts saves from the player's device can't burn for sure: send an old save again and the things come back (SPEC §13; Res World tripped on this twice).
 2. **An HTTPS address** (origin) as the game's identity, and an Ed25519 signing key in a secret store.
-3. **A protocol node.** No need to write one: `sandbox/game.mjs` is a complete library (rate card, log, daily commitments, both sides of a crossover, audits, contracts, voids and penalties). You write only:
+3. **A protocol node**, starting as a sandbox (SPEC §5.2): toy things, try everything with the network's two sandboxes, then go live. No need to write one: `sandbox/game.mjs` is a complete library (rate card, log, daily commitments, both sides of a crossover, audits, contracts, voids and penalties). You write only:
    - `players`: read an account's exportable things, burn, grant, claw back.
    - `days`: store the daily commitments (any table).
    - a config: name, exports/imports and prices, `pace`.
@@ -22,9 +22,11 @@ For game developers (and their AI agents) who want their game on Giờ Nổ Lự
 
 | Step | What | How long |
 |---|---|---|
-| 1 | Locally: `npm install && npm run sandbox` to watch every rule run, then plug the node into your game | 1–2 days for an AI agent, if the game already has a server and database |
-| 2 | Online; `npm run conform -- https://your-game` until nothing FAILs | same day |
-| 3 | Open a **"Join"** issue on GitHub (a template is there). A bot runs the conformance test and the auditor against your origin and posts the results under the issue. To try real crossovers with the two sandboxes, say so: they add you as a partner and sign a contract the same day | 1 day |
+| 1 | Locally: `npm install && npm run sandbox` to watch every rule run, then plug the node into your game with `stage: "sandbox"` (SPEC §5.2) | 1–2 days for an AI agent, if the game already has a server and database |
+| 2 | Online, still a sandbox; `npm run conform -- https://your-game` until nothing FAILs | same day |
+| 3 | Open a **"Join"** issue on GitHub (a template is there). A bot runs the conformance test and the auditor and posts the results under the issue; the network's two sandboxes add you as a partner and sign a contract the same day | 1 day |
+| 3b | **Try it for real with the two sandboxes**: carry out and take in at least once each way, fix bugs until it runs clean. As a sandbox your things are toys, and you may start over (new key, new log) without it counting as a fork | up to you |
+| 3c | **Go live**: set `stage: "live"` (once, no way back). The conformance test checks you tried both ways while a sandbox, and that from then on every crossing with a sandbox is one of your test accounts (marked `test`) | at once |
 | 4 | Run the days of unbroken daily commitments the other game asks (`policy.partnerMinDays` in its card). Res World asks **7 days** for now, rising toward 30 as the network grows (SPEC §5.1) | 7 days |
 | 5 | The real game looks: log age, rate card, flows (`npm run audit`), who answers for you; then votes (SPEC §14) | a few days |
 | 6 | Each side logs the month's `contract`. **In force as soon as both have signed**; renewed in each month's last 7 days | at once |

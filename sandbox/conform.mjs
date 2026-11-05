@@ -7,7 +7,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { arbitrage, contractWindow, hashOf, merkleRoot, newKey, seal } from "../ref/gnl.js";
-import { consentOk, links, orderOk, publicOf, r2, roster, signedBy } from "./rules.mjs";
+import { consentOk, links, orderOk, publicOf, r2, roster, signedBy, stageOf } from "./rules.mjs";
 
 export async function conform(origin) {
   const out = [];
@@ -67,6 +67,22 @@ export async function conform(origin) {
   const firstLink = pub.entries.findIndex((e) => e.payload.type === "link");
   const bare = firstLink < 0 ? [] : pub.entries.slice(firstLink).filter((e) => e.payload.type === "accept" && !e.payload.holder);
   check("R10: links logged, one source at a time, a week after undoing one; every accept names its holder", !l.breaches.length && !bare.length, l.breaches[0] ?? `accept ${bare[0]?.payload.id} without a holder`);
+  // §5.2: a sandbox until it goes live, once; live, it crossed both ways while still a sandbox, and its crossings with
+  // sandboxes since are its test accounts
+  check("stage: the card says sandbox or live (§5.2)", c.stage === "sandbox" || c.stage === "live", String(c.stage));
+  const cards = pub.entries.filter((e) => e.payload.type === "card" && e.payload.stage);
+  const wentLive = cards.findIndex((e) => e.payload.stage === "live");
+  check("stage: live is for good — no sandbox card after a live one", wentLive < 0 || cards.slice(wentLive).every((e) => e.payload.stage === "live"), "went back");
+  if (c.stage === "live") {
+    const before = pub.entries.slice(0, pub.entries.indexOf(cards[wentLive]));
+    check("stage: tried before going live — at least one crossover out (burn) and one in (grant)", before.some((e) => e.payload.type === "burn") && before.some((e) => e.payload.type === "grant"), "none while a sandbox");
+    const from = cards[0] ? pub.entries.indexOf(cards[0]) : pub.entries.length;
+    const others = new Map();
+    for (const o of new Set(pub.entries.filter((e) => e.payload.type === "contract").map((e) => e.payload.aud))) others.set(o, await publicOf(o).catch(() => null));
+    const stageAt = (o, t) => stageOf(others.get(o)?.entries.findLast((e) => e.payload.type === "card" && e.payload.iat <= t)?.payload);
+    const unmarked = pub.entries.slice(from).filter((e) => (e.payload.type === "offer" || e.payload.type === "accept") && stageAt(e.payload.aud, e.payload.iat) !== "live" && !e.payload.test);
+    check("stage: every crossing with a sandbox marked test (§5.2)", !unmarked.length, `${unmarked[0]?.payload.type} ${unmarked[0]?.payload.id}`);
+  }
   const effort = await fetch(`${origin}/gnl/effort.json`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
   check("effort sheet: /gnl/effort.json, a thing for each export at the card's prices (§4.1)", effort && c.exports.every((x) => effort.things?.some((t) => t.id === x.id && t.out === x.cgnlPer)), "missing or off the card");
   const bad = pub.entries.filter((e) => e.payload.type === "offer").map((e) => r2(pub, e)).filter(Boolean);
