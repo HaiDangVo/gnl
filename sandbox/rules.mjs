@@ -101,11 +101,12 @@ export const TESTERS_MAX = 20;
 const TESTERS_SINCE = "2026-11-06"; // Test crossings from before the registry are carried over
 /** The test accounts in a live game's log, checked: each test crossing names a tester registered before it, a tester
  * never crosses for real, an account that crossed for real never becomes one. */
+export const testersFrom = (entries) => [entries.find((e) => e.payload.type === "tester")?.payload.iat ?? TESTERS_SINCE, TESTERS_SINCE].sort()[0];
 export function testers(entries) {
   const reg = new Set();
   const real = new Set();
   const breaches = [];
-  const start = [entries.find((e) => e.payload.type === "tester")?.payload.iat ?? TESTERS_SINCE, TESTERS_SINCE].sort()[0];
+  const start = testersFrom(entries);
   for (const { payload: p } of entries) {
     if (p.type === "tester") {
       if (reg.has(p.player) || real.has(p.player)) breaches.push(`tester ${p.player.slice(0, 8)}…: registered twice, or after crossing for real`);

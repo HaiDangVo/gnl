@@ -20,7 +20,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
 import { memoryMirror } from "./mirror.mjs";
-import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stageOf, stateHash, testers, TESTERS_MAX, UNLINK_DAYS } from "./rules.mjs";
+import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stageOf, stateHash, testers, testersFrom, TESTERS_MAX, UNLINK_DAYS } from "./rules.mjs";
 
 const DAY = 86_400_000;
 const rid = () => randomBytes(16).toString("base64url");
@@ -122,7 +122,8 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (!isTest) throw fail(403, "SANDBOX", "that game is a sandbox, its things toys: only this game's test accounts cross with it");
     if (!reg.has(p)) {
       if (reg.size >= TESTERS_MAX) throw fail(403, "TESTERS", `at most ${TESTERS_MAX} test accounts (§5.2)`);
-      const real = s.log.some(({ payload: e }) => !e.test && ((e.type === "offer" && e.player === p) || (e.type === "accept" && e.holder === holderOf(uid, e.aud))));
+      const from = testersFrom(s.log); // Crossings from before the registry (and test marks) are carried over
+      const real = s.log.some(({ payload: e }) => !e.test && e.iat >= from && ((e.type === "offer" && e.player === p) || (e.type === "accept" && e.holder === holderOf(uid, e.aud))));
       if (real) throw fail(403, "TESTER", "this account crossed for real: it can't become a test account");
       append({ type: "tester", player: p });
     }
