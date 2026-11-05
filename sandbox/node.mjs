@@ -23,9 +23,10 @@ export const TOY = {
 /** One request against a game's routes: JSON in, JSON (or JSON lines) out, errors as SPEC §9's `{ error }`. */
 export async function serve(routes, method, url, body) {
   try {
-    const route = routes[`${method} ${url.split("?")[0]}`];
+    const path = url.split("?")[0];
+    const route = routes[`${method} ${path}`] ?? routes[`${method} ${path.replace(/[^/]*$/, "*")}`]; // `/dir/*`: any file in it
     if (!route) throw Object.assign(new Error(url), { status: 404, code: "NOT_FOUND" });
-    const out = await route(body ? JSON.parse(body) : undefined);
+    const out = await route(body ? JSON.parse(body) : undefined, path);
     return { status: 200, type: typeof out === "string" ? "application/jsonl" : "application/json", body: typeof out === "string" ? out : JSON.stringify(out) };
   } catch (e) {
     return { status: e.status ?? 500, type: "application/json", body: JSON.stringify({ error: { code: e.code ?? "ERROR", message: e.message } }) };

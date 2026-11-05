@@ -16,7 +16,8 @@ For game developers (and their AI agents) who want their game on Giờ Nổ Lự
    An effort sheet at `/gnl/effort.json` (SPEC §4.1): how each thing is earned and what its price stands on (measured, design, declared or a guess).
 4. **Prices measured from real players**: the median growth per hour played, with the method published. No guesses.
 5. **A page in the game** where the player chooses what to carry and confirms it themselves, signed in. An AI never moves anything for them (SPEC §10).
-6. **Someone accountable**: a master (the game's owner) and a public council of the people running it; each makes their key and signs their consent on their own machine with `npm run council` (SPEC §14). From two members on, every council change and every act of the game's own is an order more than half the council signs (`npm run order`).
+6. **Gifts, compensation, paid things** logged as `issue` (SPEC §4.2): they never leave, and they're no cheat.
+7. **Someone accountable**: a master (the game's owner) and a public council of the people running it; each makes their key and signs their consent on their own machine with `npm run council` (SPEC §14). From two members on, every council change and every act of the game's own is an order more than half the council signs (`npm run order`).
 
 ## Steps and timing
 
@@ -24,9 +25,9 @@ For game developers (and their AI agents) who want their game on Giờ Nổ Lự
 |---|---|---|
 | 1 | Locally: `npm install && npm run sandbox` to watch every rule run, then plug the node into your game with `stage: "sandbox"` (SPEC §5.2) | 1–2 days for an AI agent, if the game already has a server and database |
 | 2 | Online, still a sandbox; `npm run conform -- https://your-game` until nothing FAILs | same day |
-| 3 | Open a **"Join"** issue on GitHub (a template is there). A bot runs the conformance test and the auditor and posts the results under the issue; the network's two sandboxes add you as a partner and sign a contract the same day | 1 day |
+| 3 | Open a **"Join"** issue on GitHub (a template is there). A bot runs the conformance test and the auditor and posts the results under the issue; the network's two sandboxes add you as a partner and sign a contract the same day; they and Res World witness you, keeping copies of your log | 1 day |
 | 3b | **Try it for real with the two sandboxes**: carry out and take in at least once each way, fix bugs until it runs clean. As a sandbox your things are toys, and you may start over (new key, new log) without it counting as a fork | up to you |
-| 3c | **Go live**: set `stage: "live"` (once, no way back). The conformance test checks you tried both ways while a sandbox, and that from then on every crossing with a sandbox is one of your test accounts (marked `test`) | at once |
+| 3c | **Go live**: set `stage: "live"` (once, no way back; the log is kept). The conformance test checks you tried both ways while a sandbox, and that from then on every crossing with a sandbox is a registered test account (`tester`: at most 20, for good, never crossing with a live game). After that: a bug that never touched the log, deploy; one that logged wrong things, fix forward (`pause`, `cut`, `void`, a new card). A staging copy (a sandbox with the same code, `staging`/`stagingOf`) is optional | at once |
 | 4 | Run the days of unbroken daily commitments the other game asks (`policy.partnerMinDays` in its card). Res World asks **7 days** for now, rising toward 30 as the network grows (SPEC §5.1) | 7 days |
 | 5 | The real game looks: log age, rate card, flows (`npm run audit`), who answers for you; then votes (SPEC §14) | a few days |
 | 6 | Each side logs the month's `contract`. **In force as soon as both have signed**; renewed in each month's last 7 days | at once |

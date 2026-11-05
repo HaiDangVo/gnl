@@ -19,7 +19,8 @@
  */
 import { createHmac, randomBytes } from "node:crypto";
 import { contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
-import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stageOf, stateHash, UNLINK_DAYS } from "./rules.mjs";
+import { memoryMirror } from "./mirror.mjs";
+import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stageOf, stateHash, testers, TESTERS_MAX, UNLINK_DAYS } from "./rules.mjs";
 
 const DAY = 86_400_000;
 const rid = () => randomBytes(16).toString("base64url");
@@ -67,6 +68,10 @@ export function memoryPlayers(s) {
       p.state[thing] = (p.state[thing] ?? 0) + up;
       p.vesting.push({ from, crossover: id, id: thing, left: qty - up });
     },
+    async give(uid, items) {
+      const p = (s.players[uid] ??= { state: {}, held: {}, hist: {}, vesting: [] });
+      for (const it of items) p.state[it.id] = (p.state[it.id] ?? 0) + it.qty;
+    },
     test: async (uid) => uid.startsWith("test"), // The demo's test accounts
     async clawbackOne(uid, id) {
       for (const v of s.players[uid]?.vesting ?? []) if (v.crossover === id) v.left = 0;
@@ -91,7 +96,7 @@ export const memoryDays = (s) => ({
   },
 });
 
-export function game(s, { origin, clock, config, cheat = "", players = memoryPlayers(s), days = memoryDays(s) }) {
+export function game(s, { origin, clock, config, cheat = "", players = memoryPlayers(s), days = memoryDays(s), mirror = memoryMirror() }) {
   s.first ??= {};
   s.uids ??= {};
   s.debts ??= {};
@@ -103,11 +108,25 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   const imp = Object.fromEntries(imports.map((r) => [r.id, r.cgnlPer]));
   // §5.2: a game starts as a sandbox (toy things, free to start over) and goes live once, for good
   const stage = config.stage === "live" ? "live" : "sandbox";
-  /** Live ↔ sandbox: only the live game's test accounts cross, and their entries say `test` (§5.2). */
+  /** Live ↔ sandbox: only the live game's test accounts cross, and their entries say `test` and name the account's
+   * pseudonym, registered with a `tester` entry the first time — for good: it never crosses with a live game (§5.2). */
   const testOnly = async (pub, uid) => {
-    if (stage !== "live" || stageOf(pub.card.payload) === "live") return {};
-    if (!(await players.test?.(uid))) throw fail(403, "SANDBOX", "that game is a sandbox, its things toys: only this game's test accounts cross with it");
-    return { test: true };
+    if (stage !== "live") return {};
+    const p = pseudonym(uid);
+    const reg = testers(s.log).set;
+    const isTest = reg.has(p) || (await players.test?.(uid));
+    if (stageOf(pub.card.payload) === "live") {
+      if (isTest) throw fail(403, "TESTER", "a test account crosses only with sandboxes (§5.2)");
+      return {};
+    }
+    if (!isTest) throw fail(403, "SANDBOX", "that game is a sandbox, its things toys: only this game's test accounts cross with it");
+    if (!reg.has(p)) {
+      if (reg.size >= TESTERS_MAX) throw fail(403, "TESTERS", `at most ${TESTERS_MAX} test accounts (§5.2)`);
+      const real = s.log.some(({ payload: e }) => !e.test && ((e.type === "offer" && e.player === p) || (e.type === "accept" && e.holder === holderOf(uid, e.aud))));
+      if (real) throw fail(403, "TESTER", "this account crossed for real: it can't become a test account");
+      append({ type: "tester", player: p });
+    }
+    return { test: true, tester: p };
   };
   const policy = { lineStart: 10_000, lineCap: 1_000_000, upfront: 0.2, vestPerHour: 300, ...config.policy };
   /** The card's content: the config, and the council as the log has it (§14). */
@@ -117,6 +136,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       type: "card", protocol: "gnl/0", iss: origin, game: { name: config.name, contact: config.contact, jurisdiction: "VN" },
       keys: [s.key.jwk], hoursPerDay: config.hoursPerDay ?? { minor: 1, adult: 16 }, pace: config.pace, exports: config.items, imports, policy,
       witnesses: config.peers ?? [], effort: `${origin}/gnl/effort.json`, stage,
+      ...(config.staging ? { staging: config.staging } : {}), ...(config.stagingOf ? { stagingOf: config.stagingOf } : {}), // §5.2
       ...(c.members.length ? { council: c.members, master: c.master } : {}),
     };
   };
@@ -231,11 +251,16 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     contracts();
   }
 
-  /** Co-sign every peer's checkpoint, after checking it still extends the last one co-signed; a fork → a proof. */
+  /** Co-sign every peer's checkpoint, after checking it still extends the last one co-signed; a fork → a proof. Keep a
+   * copy of each log (`mirror`). */
   async function witness(peers = config.peers ?? []) {
     for (const o of peers) {
       const pub = await publicOf(o);
       if (merkleRoot(pub.entries) !== pub.checkpoint.payload.root) throw new Error(`${o} serves entries that don't match its checkpoint`);
+      // The copy (§6.3): a history no longer at the start of what it serves is kept apart, for good
+      const kept = await mirror.head(o);
+      const replaced = !!kept && (pub.entries.length < kept.size || merkleRoot(pub.entries.slice(0, kept.size)) !== kept.root);
+      if (replaced || kept?.size !== pub.entries.length) await mirror.put(o, pub.entries, replaced);
       const last = s.log.findLast((e) => e.payload.type === "cosign" && e.payload.of === o)?.payload.checkpoint;
       if (last && merkleRoot(pub.entries.slice(0, last.payload.size)) !== last.payload.root && stageOf(pub.card.payload) === "live") {
         append({ type: "proof", against: o, rule: "R7", why: `forked log: no longer extends its checkpoint of size ${last.payload.size}`, evidence: [last, pub.checkpoint] });
@@ -312,10 +337,10 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (paused(to)) throw fail(403, "PAUSED", "crossing with that game is paused by this game's council (§14)");
     const test = await testOnly(pubTo, uid);
     // R9, no pass-through: what came in from other games never leaves again — only effort spent here does
-    const received = Object.values(s.accepts).filter((x) => x.uid === uid && s.grants[x.acc.payload.id]).reduce((n, x) => n + x.acc.payload.cgnl, 0);
+    const received = Object.values(s.accepts).filter((x) => x.uid === uid && s.grants[x.acc.payload.id]).reduce((n, x) => n + x.acc.payload.cgnl, 0) + issuedTo(p);
     const mine = worth(Object.entries(st).map(([id, qty]) => ({ id, qty })).filter((it) => exp[it.id])) - received;
     const asked = rated.reduce((n, it) => n + it.cgnl, 0);
-    if (asked > mine) throw fail(422, "R9", `${asked} cgnl asked, ${Math.max(0, mine)} earned here (${received} came from other games and can't leave again)`);
+    if (asked > mine) throw fail(422, "R9", `${asked} cgnl asked, ${Math.max(0, mine)} earned here (${received} came from other games or as gifts, and can't leave)`);
     if (!(await days.get(today()))?.leaves.some((l) => l.p === p)) await commit(); // Not in today's commitment yet (joined since)
     const offer = append({
       type: "offer", id: rid(), aud: to, ticket: tk, player: p, items: rated, cgnl: rated.reduce((n, it) => n + it.cgnl, 0),
@@ -525,8 +550,22 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     return c;
   }
 
+  /** §4.2: the game's own gifts — compensation, events, paid things — logged, so they never leave (R9) and are never
+   * taken for growth past pace (R3). `to`: [{uid, items: [{id, qty}]}], handed over by `players.give` when the game
+   * has one (else the game did it itself). With a council, an order's (§14). */
+  async function issue(to, why, order) {
+    if (!Array.isArray(to) || !to.length || to.some((t) => !t.items?.length || t.items.some((it) => !(it.qty > 0) || !Number.isInteger(it.qty))))
+      throw fail(400, "BAD_ISSUE", "to: [{uid, items: [{id, qty}]}]");
+    for (const t of to) await players.give?.(t.uid, t.items);
+    const list = to.map((t) => ({ player: pseudonym(t.uid), items: t.items.map((it) => ({ id: it.id, qty: it.qty, cgnl: it.qty * (exp[it.id] ?? 0) })) }));
+    const e = append({ type: "issue", id: rid(), to: list, why: String(why).slice(0, 200), ...(order ? { order } : {}) });
+    sign();
+    return e;
+  }
+  const issuedTo = (p) => s.log.filter((e) => e.payload.type === "issue").flatMap((e) => e.payload.to).filter((t) => t.player === p).reduce((n, t) => n + t.items.reduce((m, it) => m + it.cgnl, 0), 0);
+
   // §14: the council's acts. Each op names the fields it carries; the ballots sign all of them
-  const ORDERS = { seat: ["member", "consent"], unseat: ["account"], master: ["account"], resign: ["account"], pause: ["aud", "until"], end: ["aud"], void: ["id"], cut: ["id"] };
+  const ORDERS = { seat: ["member", "consent"], unseat: ["account"], master: ["account"], resign: ["account"], pause: ["aud", "until"], end: ["aud"], void: ["id"], cut: ["id"], issue: ["to"] };
   const seated = (a) => roster(s.log).members.some((m) => m.account === a);
   const paused = (aud) => s.log.some((e) => e.payload.type === "order" && e.payload.op === "pause" && e.payload.aud === aud && e.payload.until > at());
   /** An order of this game's council (§14): `{type: "order", iss, op, …, why, made}` and the yes `ballots` its members
@@ -549,6 +588,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       end: () => !(config.partners ?? config.peers ?? []).includes(o.aud) && "not a partner",
       void: () => false,
       cut: () => false,
+      issue: () => (!Array.isArray(o.to) || o.to.some((t) => !s.uids[t.player])) && "to: [{player, items}], players of this game",
     }[o.op]();
     if (bad) throw fail(409, "ORDER", bad);
     const { iss: _, ...entry } = o;
@@ -558,6 +598,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (o.op === "master") append({ type: "council", op: "master", member: { account: o.account }, order: h });
     if (o.op === "void") await voidCrossover(o.id, o.why, h);
     if (o.op === "cut") await cut(o.id, o.why, h);
+    if (o.op === "issue") await issue(o.to.map((t) => ({ uid: s.uids[t.player], items: t.items })), o.why, h);
     upkeep(); // The card's council
     sign();
     return { ok: true, order: h };
@@ -565,7 +606,8 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
 
   /** The fork cheat: drop the first offer from the log after a witness co-signed it, and sign the new history. */
   function rewrite() {
-    s.log.splice(s.log.findIndex((e) => e.payload.type === "offer"), 1);
+    const i = s.log.findIndex((e) => e.payload.type === "offer");
+    s.log.splice(i < 0 ? 1 : i, 1); // A game that never offered: its second entry
     sign();
   }
 
@@ -598,6 +640,17 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     "POST /gnl/audit": onAudit,
     "POST /gnl/void": onVoid,
     "POST /gnl/order": onOrder,
+    // §6.3: the copies this game keeps of the logs it witnesses — index.json, then <host>~<n>.jsonl (0 the oldest)
+    "GET /gnl/mirror/*": async (_, path) => {
+      const list = await mirror.list();
+      const name = path.slice("/gnl/mirror/".length);
+      if (name === "index.json") return list.map((m) => ({ ...m, files: m.gens.map((_, n) => `/gnl/mirror/${new URL(m.of).host}~${n}.jsonl`) }));
+      const [, host, n] = name.match(/^(.+)~(\d+)\.jsonl$/) ?? [];
+      const of = list.find((m) => new URL(m.of).host === host)?.of;
+      const entries = of && (await mirror.get(of, +n));
+      if (!entries) throw fail(404, "NOT_FOUND", path);
+      return entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+    },
     "POST /dev/tick": () => ({ day: s.lastDay }),
     // §4.1: how each thing is earned and what the prices stand on — for people and agents alike
     "GET /gnl/effort.json": () => (config.effort ? config.effort() : effortOf(card.payload)), // Online: any write first does the new day's work; this is the write that does only that
@@ -617,5 +670,5 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       "POST /dev/cross": (b) => cross(String(b?.uid), String(b?.to), b?.items, b?.ticket),
     });
 
-  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, cut, onOrder, unlink, sources, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
+  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, cut, issue, onOrder, unlink, sources, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
 }

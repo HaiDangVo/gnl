@@ -15,6 +15,7 @@ import { createWalletClient, defineChain, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { canonical, sha256 } from "./lib/ref/gnl.js";
 import { freshState, game, realClock } from "./lib/sandbox/game.mjs";
+import { firestoreMirror } from "./lib/sandbox/mirror.mjs";
 import { serve, TOY } from "./lib/sandbox/node.mjs";
 
 initializeApp();
@@ -50,7 +51,7 @@ async function load(host) {
   const ref = db.doc(`gnl-sandbox/${name}`);
   const snap = await ref.get();
   const s = snap.exists ? JSON.parse(snap.get("json")) : freshState(name, new Date().toISOString());
-  const g = game(s, { origin: host, clock: realClock, config });
+  const g = game(s, { origin: host, clock: realClock, config, mirror: firestoreMirror(db, `gnl-mirror-${name}`) }); // Its copies of the logs it witnesses
   return (live[host] = { s, g, save: () => ref.set({ json: JSON.stringify(s), at: new Date() }) });
 }
 
@@ -86,6 +87,9 @@ async function daily(origin) {
   if (s.lastDay !== today) {
     await g.newDay();
     await save(); // Its commitment is public before it asks anyone else for anything
+  }
+  if (s.witnessedDay !== today) {
+    s.witnessedDay = today;
     try {
       await g.witness();
       await g.runAudits();

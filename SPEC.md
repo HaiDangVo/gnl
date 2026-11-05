@@ -74,6 +74,27 @@ Every game publishes **how its things are earned and what its prices stand on**,
 - `basis`: **measured** (from players' verified history, with `samples`), **design** (the game's own designed pace, e.g. a layer in 20 hours of sitting), **declared** (the game's word), **guess** (waiting for data). A partner weighs a contract on it: `guess` and `declared` deserve a smaller line.
 - `how` is plain words, in one or more languages.
 
+### 4.2 House things: gifts, compensation, paid things
+
+A game gives its players things no play earned: compensation for its own bugs, event rewards, gifts, things bought with money. These are **house things**. They are the game's own business, but they are not effort: they **never leave** through this protocol, and the growth they cause is not cheating.
+
+- Every house thing given to an account that may ever export is logged: `issue` `{type: "issue", id, to: [{player, items: [{id, qty, cgnl}]}], why}`: players by pseudonym, `cgnl` at the card's export price (0 for what isn't exported), many players in one entry.
+- **R9 counts it as received**: an account's exportable worth is lowered by everything ever issued to it. A gift can't be carried out, nor a paid thing.
+- **R3 and R4 allow for it**: in an audit, what was issued to the player on the days of two states is taken off the later state before `pace` applies (`issuedOn()` in `sandbox/rules.mjs`). A compensated player, or their game, is not a cheat.
+- With a council, an `issue` is one of its orders (§14). Anyone sees, in the log, how much a game gives away and why.
+- Things bought with money are always house things: money never crosses into another game (§12).
+- **A game's own currency** (Res World's NTT is one) MAY keep its books in the same log: each day, what was minted by source (play, paid, the treasury), burnt by sink, the total supply, and the Merkle root of every account's balance. Each player checks their own balance is in it and the leaves sum to the supply, so nobody changes a balance quietly. Its minting numbers are tunable numbers (§14). Only what play earned of it leaves, priced like anything else, by the measured pace: a currency that inflates is worth fewer hours by itself.
+
+### 4.3 Rare things
+
+A rare drop (a legendary sword) MAY be exported. Its price is the **expected hours to get it**: hours per try ÷ the drop rate, measured from players' history, published in the effort sheet (`basis: "measured"` with the rate and its samples).
+
+- A lucky player carries that expectation, no more: R2 still bounds an account by its days, R10 the receiving one.
+- Its `pace` leaves room for honest luck: `burst` covers the luckiest honest player in a million (Poisson at the expected rate). So R3 catches duplicates, not luck.
+- Rare things a house gave (events, paid) never leave (§4.2).
+- The receiving game never sees the sword, only hours; it sells its own rare things for hours only if it wants to, with its own limits.
+- Burning a rare thing is for good: the game MUST say so before the player confirms.
+
 ## 5. Messages and flow
 
 ```
@@ -125,9 +146,13 @@ Two games cross over only under a **contract**: one calendar month (UTC) at a ti
 
 Every game has a **stage** in its card: `"sandbox"` or `"live"`. A game starts as a sandbox and goes live **once, for good**: the switch is a new card in its log, and no sandbox card may follow a live one.
 
-- **Sandbox.** Its things are toys. It runs the whole protocol — card, log, commitments, contracts, crossovers, audits — so its developer can try every step against the network's sandboxes (https://gnl-sandbox.web.app, https://gnl-endless.web.app) and fix what breaks. It MAY start over (new key, empty log): a sandbox's forked history is no fraud proof (§7 R7 applies to live games).
-- **Live.** Its things are real, its log append-only for good. It crosses with sandboxes **only for its test accounts** (the game's own list, a game's own risk), and marks those entries `test: true` — offers and accepts. Real accounts cross only with live partners, under contract (§5.1).
-- **Going live** needs, in its own log while still a sandbox, at least one crossover out (a `burn`) and one in (a `grant`): the workflow tried both ways. The conformance test checks the stage, the one-way switch, the tried workflow and the `test` marks (`npm run conform`).
+- **Sandbox.** Its things are toys. It runs the whole protocol — card, log, commitments, contracts, crossovers, audits — so its developer can try every step against the network's sandboxes (https://gnl-sandbox.web.app, https://gnl-endless.web.app) and fix what breaks. It MAY start over (new key, empty log): a sandbox's forked history is no fraud proof (§7 R7 applies to live games). **Its old history is never deleted**: it SHOULD keep serving it, and its witnesses keep their copies for good (§6.3). How a game was tried, and tried to cheat, stays public to study.
+- **Live.** Its things are real, its log append-only for good. It crosses with sandboxes **only for its test accounts**. Real accounts cross only with live partners, under contract (§5.1).
+- **Test accounts** are registered in the log, for good. The first time one crosses, the game logs `tester` `{player}` (its pseudonym). From then on it is a test account forever: it crosses only with sandboxes, never with a live game, and an account that ever crossed for real can't become one. At most **20** a game. Its offers and accepts carry `test: true` and `tester: <its pseudonym>`. All checked from the log alone (`testers()` in `sandbox/rules.mjs`, the conformance test). One account is never both: an owner plays on a real account and tests on test accounts.
+- **Going live** needs, in its own log while still a sandbox, at least one crossover out (a `burn`) and one in (a `grant`): the workflow tried both ways. **The log is kept**: the switch is a card appended to the same log, the sandbox history stays in it for good. The conformance test checks the stage, the one-way switch, the tried workflow, the test accounts (`npm run conform`).
+- **Bugs after going live.** One that never touched the log is fixed by deploying. One that logged something wrong is fixed forward, never by rewriting: `pause` at once (§14), then `cut` what was granted too much (§8.2), `void` what was sent wrong (§8.1), a new card (§4). What a player already received stays the game's cost. A log that breaks (a fork) is a fraud proof: that is the one thing to test before every deploy.
+- **Staging (optional).** A live game MAY run a staging copy: the same code at another origin, its own key and log, `stage: "sandbox"`, partnered with the network's sandboxes, where big changes run first. The live card names it (`staging`) and the copy names the live game back (`stagingOf`); the conformance test checks both. It is a tool for the game's own risk, **not an entry requirement**: a game too small for a second server tests with its test accounts and bears what a bug costs it (above). A game may also stay a sandbox as long as it likes.
+- **New library versions** (`sandbox/game.mjs`) run on the network's sandboxes, with the conformance test passing, before a live game takes them.
 - A live game's partners count its days (`partnerMinDays`, §5.1) over its whole log; the day it went live is public in it.
 
 For a developer: build against `stage: "sandbox"`, open a join issue to be added to the sandboxes' partners, cross both ways until everything passes, then set `stage: "live"` and ask live games for contracts (JOINING.md).
@@ -136,7 +161,7 @@ For a developer: build against `stage: "sandbox"`, open a join issue to be added
 
 ### 6.1 Each game's log
 
-- Every envelope a game signs (`offer`, `accept`, `burn`, `grant`, `refund`, `commit`, `card`, `contract`, `council`, `proposal`, `council-vote`, `tally`, `void`, `penalty`, `repay`, `key`, `revoke`, `cosign`, `proof`) is appended to **its own** log. Tickets are not logged (they carry nothing of value and expire in minutes).
+- Every envelope a game signs (`offer`, `accept`, `burn`, `grant`, `refund`, `commit`, `card`, `contract`, `council`, `proposal`, `council-vote`, `tally`, `void`, `penalty`, `repay`, `key`, `revoke`, `cosign`, `proof`, `link`, `order`, `cut`, `tester`, `issue`) is appended to **its own** log. Tickets are not logged (they carry nothing of value and expire in minutes).
 - The log is a Merkle tree with RFC 9162 (Certificate Transparency 2.0) hashing over each entry's canonical JSON. v0 serves `GET /gnl/log/entries.jsonl` (one envelope a line, in order) and `GET /gnl/log/checkpoint.json` (an envelope: `{type: "checkpoint", iss, size, root, t}`), both static files. Large logs MAY switch to the C2SP `tlog-tiles` layout later.
 - A game MUST publish a checkpoint at least daily, and never two different roots for the same size.
 
@@ -148,7 +173,9 @@ A player's **first committed day** is the first `commit` that contains their pse
 
 ### 6.3 Witnesses and anchors
 
-- **Witnesses**: every game listed in a card's `witnesses` fetches that game's checkpoint at least daily, checks the served entries hash to it and that it is an append-only extension of the last one it co-signed (RFC 9162 consistency, or v0: recompute the root of the first `size` entries), mirrors the entries, and appends a `cosign` entry (`{of: origin, checkpoint: <the checkpoint envelope>}`) to its **own** log. If the old checkpoint is no longer a prefix, it logs a `proof` (R7, the two signed checkpoints as evidence) instead.
+- **Witnesses**: every game listed in a card's `witnesses` fetches that game's checkpoint at least daily, checks the served entries hash to it and that it is an append-only extension of the last one it co-signed (RFC 9162 consistency, or v0: recompute the root of the first `size` entries), **keeps a copy** of the entries, and appends a `cosign` entry (`{of: origin, checkpoint: <the checkpoint envelope>}`) to its **own** log. If the old checkpoint is no longer a prefix, it logs a `proof` (R7, the two signed checkpoints as evidence) instead.
+- **Copies**: a witness serves its copies at `GET /gnl/mirror/index.json` and `/gnl/mirror/<host>~<n>.jsonl`. A history no longer at the start of what a game serves (a sandbox starting over, a fork) is kept apart as the next `n`, for good. A game that deletes its log still has its witnesses' copies.
+- **The network's reference nodes** — its two sandboxes and Res World (its first game, and its sponsor) — witness **every** game in the network, partner or not: each game joining is added to all three. Every log therefore has at least three copies besides its own; its partners' make more.
 - **Anchors**: each day's checkpoint is timestamped with **OpenTimestamps** (Bitcoin; free) and MAY also be anchored on **Ronin**: a zero-value transaction from the game's chain account to itself with data `0x474e4c31` ("GNL1") followed by `sha256(JCS(checkpoint payload))`. The `.ots` file and the transaction hash are logged in the next `checkpoint`'s optional `anchors` field.
 
 ## 7. Rules anyone can check
@@ -163,7 +190,7 @@ A player's **first committed day** is the first `commit` that contains their pse
 | R6 | **Vesting**: of a grant, `upfront` at once, the rest unlocking `vestPerHour` cgnl per hour the player actually plays in B (B's own measure) | B | — |
 | R7 | **Promises kept**: an ACCEPT followed by its BURN has a GRANT in B's log before `burnBy` + 24 h; a checkpoint is never forked (two signed checkpoints, same size, different roots) — for a live game; a sandbox may start over (§5.2) | public logs | fraud proof |
 | R8 | **No arbitrage** within each card | the card | reject the card |
-| R9 | **No pass-through**: what a player received through this protocol never leaves again. A game MUST refuse an OFFER for more than the player's exportable state is worth minus everything that player ever received (in cgnl, as accepted). Only effort spent in the game itself leaves it, so a trusted game can't relay another game's effort onward | the giving game itself | refuse |
+| R9 | **No pass-through**: what a player received through this protocol never leaves again, nor what the game itself gave them (house things, §4.2). A game MUST refuse an OFFER for more than the player's exportable state is worth minus everything that player ever received (in cgnl, as accepted). Only effort spent in the game itself leaves it, so a trusted game can't relay another game's effort onward | the giving game itself | refuse |
 | R10 | **One source at a time, and a receiving bound**: a receiving account takes from **one** account of each partner game at a time, and that account gives to it alone (B binds them at the first ACCEPT). To change, the player undoes the link, and no new link forms on either side for **7 days** (a week: the line's own rhythm); relinking the same pair is free. And it takes at most `hoursPerDay` for each day since its own first commitment in B. Ten accounts elsewhere can't feed one here, nor hop to the next when one is blocked, nor a fresh account here take 500 hours. **Every link is logged**: `link` `{aud: A, holder, source, op: "on" \| "off"}` — `holder` B's pseudonym of its account toward A (`HMAC(secret, uid ‖ A)`: it links that account's crossovers from A, nothing else), `source` A's pseudonym of the giving account (its offers' `player`) — and each ACCEPT names its `holder`. So the rule is checked from the logs alone: one live link per holder and per source, a week after an `off`, every accept's holder linked to the very account that offered (`links()` in `sandbox/rules.mjs`; the auditor and the conformance test run it) | B's log, A's offers | refuse; anyone can check |
 
 **A fraud proof** is a `proof` entry: `{against: origin, rule, evidence: [envelopes…]}` that any program can check with no judgement. Anyone MAY publish one (in their log, or just post it). On a valid proof every game MUST, as soon as it sees it: set the line for that origin to zero, stop accepting its envelopes, and claw back what has not yet vested from grants that came from it. Lines restart at `lineStart` only by the partner's own decision, logged.
@@ -204,6 +231,7 @@ When the receiving game finds it granted too much — a wrong price, a bug — i
 | POST | `/gnl/void` | A → B | §8.1 |
 | POST | `/gnl/order` | anyone, carrying the council's ballots | §14: the game logs the order and does it, or refuses `{error}` |
 | GET | `/gnl/log/entries.jsonl`, `/gnl/log/checkpoint.json` | anyone | §6.1 |
+| GET | `/gnl/mirror/index.json`, `/gnl/mirror/<host>~<n>.jsonl` | anyone | §6.3: the copies this game keeps of the logs it witnesses |
 
 Errors: `{ "error": { "code": "…", "message": "…" } }` with a 4xx/5xx status. Rate limits are each game's own.
 
@@ -300,12 +328,14 @@ Decisions that **widen** a game's exposure to others go to a vote: a new contrac
 
 **The council decides the game's own acts.** A council of one is its master, deciding alone. From two members on, every act of the game's own is an **order** of its council, not of any one person: seating or removing a member, naming a new master, and the narrowing decisions (pausing or ending a contract, voiding, cutting).
 
-- An order is `{type: "order", iss: <the game>, op, …its fields, why, made}`; each member who agrees signs a `ballot` `{type: "ballot", iss, member, proposal: <the order's hash>, choice: "yes"}` with their own key. Anyone may `POST /gnl/order` it with the ballots; the game logs it **with the ballots** and then does it (a `council` change, a `void`, a `cut`… each naming the order's hash). Ops: `seat {member, consent}`, `unseat {account}`, `master {account}`, `resign {account}`, `pause {aud, until}`, `end {aud}`, `void {id}`, `cut {id}`.
+- An order is `{type: "order", iss: <the game>, op, …its fields, why, made}`; each member who agrees signs a `ballot` `{type: "ballot", iss, member, proposal: <the order's hash>, choice: "yes"}` with their own key. Anyone may `POST /gnl/order` it with the ballots; the game logs it **with the ballots** and then does it (a `council` change, a `void`, a `cut`… each naming the order's hash). Ops: `seat {member, consent}`, `unseat {account}`, `master {account}`, `resign {account}`, `pause {aud, until}`, `end {aud}`, `void {id}`, `cut {id}`, `issue {to}` (§4.2).
 - It passes with yes from **more than half** of the seats — the council as frozen for a vote (above: a seat counts 7 days after its join, a leaver keeps theirs 7 days). On an act that only **reduces** risk (`pause`, `end`, `void`, `cut`), a split council — exactly half — goes the master's way. Seats and the master are never decided by a tie: in a council of two, the master can't seat a friend or dismiss the other alone.
 - `resign`: the member alone, with their own ballot; no one else can sign it for them. A master resigns only after the council has named another (unless alone).
 - `pause`: **the master alone**, at once, for at most 7 days — crossing with one partner stops while the council looks. It holds things, never takes them; anything longer is an `end`, the council's.
 - The first council is the run of `join`s a log starts it with (each with its consent). Every `council` entry after it must name an order whose ballots check, and with a council every `void` and `cut` too: the conformance test re-checks each one (`orderOk()` in `sandbox/rules.mjs`). Members sign orders on their own machines: `npm run order` (`tools/order.mjs`).
 - What no rule can stop: the master holds the game's signing key (whoever runs the server can make it sign anything); the protocol makes every act public and checkable — an act without its order shows in the log, and the conformance test flags it. And the host filling seats with people of its own mind. That only moves votes **within** the host's 50 — it never reaches the community's 50, which stays the guard: even a unanimous council needs 10% of the eligible players.
+
+**Tunable numbers.** A game's numbers that no measurement sets — how much of its own currency a play hour mints into its treasury, a monthly mint cap, a design pace, a pricing method — are in its effort sheet, and change only by a vote (above): **at most ±20% a change, at most once every 30 days** each. Neither the host nor the players can swing one in a single step, and both see each step coming. Numbers a measurement sets (prices from the median pace, drop rates) follow the measurement, under the card's weekly rule (§4); how they are measured is a pricing method. Until a game runs votes, its council decides (small games, below) within the same bounds.
 
 **Eligible players.** An account in the game's daily commitments for at least **30 days** before the vote opens, with at least **10 hours** of play in those 30 days (the game's own measure), signed in to vote. One account, one vote; a player may change their vote until the vote closes.
 

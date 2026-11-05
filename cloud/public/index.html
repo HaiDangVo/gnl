@@ -32,7 +32,7 @@
   th { color: var(--soft); font-weight: 600; font-size: 12px; }
   td.n { text-align: right; font-variant-numeric: tabular-nums; }
   .tag { display: inline-block; min-width: 64px; text-align: center; border-radius: 4px; padding: 1px 6px; font: 600 12px var(--mono); background: var(--chip); }
-  .t-offer, .t-burn { color: var(--gold); } .t-accept, .t-grant { color: var(--good); } .t-proof, .t-refund, .t-void, .t-penalty, .t-cut { color: var(--bad); }
+  .t-offer, .t-burn { color: var(--gold); } .t-accept, .t-grant, .t-issue { color: var(--good); } .t-proof, .t-refund, .t-void, .t-penalty, .t-cut { color: var(--bad); }
   .log { max-height: 560px; overflow: auto; }
   .row { border-bottom: 1px solid var(--line); padding: 8px 4px; }
   .row summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; list-style: none; }
@@ -169,6 +169,8 @@ function describe(p) {
     case "order": return `<b>${T("Lệnh hội đồng", "Council order")}</b> ${esc(p.op)}${p.account ? ` ${esc(p.account)}` : ""}${p.aud ? ` ${host(p.aud)}` : ""}${p.id ? ` ${short(p.id)}…` : ""}: ${esc(p.why)} (${p.ballots.length} ${T("chữ ký", "signatures")})`;
     case "cut": return `<b>${T("THU phần chưa trao", "CUT what wasn't handed over")}</b> ${short(p.id)}… ${T("từ", "from")} ${host(p.aud)}: ${esc(p.why)}`;
     case "link": return T(`Liên kết nguồn ${p.op === "on" ? "mới" : "huỷ"} với`, `Source link ${p.op === "on" ? "made" : "undone"} with`) + ` ${host(p.aud)} (${short(p.holder)}… ⇄ ${short(p.source)}…)`;
+    case "tester": return T(`Tài khoản test mới ${short(p.player)}… (mãi mãi, chỉ chuyển với sandbox)`, `A new test account ${short(p.player)}… (for good, sandboxes only)`);
+    case "issue": return `<b>${T("Quà của game", "The game's gift")}</b> ${T(`cho ${p.to.length} người`, `to ${p.to.length} players`)}: ${esc(p.why)} (${T("không bao giờ mang ra", "never leaves")})`;
     case "tally": return T(`Kết quả bỏ phiếu: ${Math.round(p.weight)}/100, ${p.pass ? "thông qua" : "không qua"}`, `Vote result: ${Math.round(p.weight)}/100, ${p.pass ? "passed" : "failed"}`);
     default: return esc(p.type);
   }

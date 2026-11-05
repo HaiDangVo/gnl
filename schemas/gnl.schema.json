@@ -395,6 +395,16 @@
             "live"
           ],
           "description": "SPEC §5.2: a sandbox (toy things, may start over) until it goes live, once"
+        },
+        "staging": {
+          "type": "string",
+          "format": "uri",
+          "description": "SPEC §5.2: a live game's own staging copy (a sandbox with the same code), optional"
+        },
+        "stagingOf": {
+          "type": "string",
+          "format": "uri",
+          "description": "SPEC §5.2: on a staging copy's card, the live game it stages"
         }
       }
     },
@@ -490,6 +500,11 @@
         "test": {
           "const": true,
           "description": "SPEC §5.2: a live game's test account crossing with a sandbox"
+        },
+        "tester": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "SPEC §5.2: with test, the live game's registered test account (a `tester` entry's player)"
         }
       }
     },
@@ -556,6 +571,11 @@
         "test": {
           "const": true,
           "description": "SPEC §5.2: a live game's test account crossing with a sandbox"
+        },
+        "tester": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "SPEC §5.2: with test, the live game's registered test account (a `tester` entry's player)"
         }
       }
     },
@@ -1335,7 +1355,8 @@
             "pause",
             "end",
             "void",
-            "cut"
+            "cut",
+            "issue"
           ]
         },
         "why": {
@@ -1368,6 +1389,100 @@
         },
         "until": {
           "$ref": "#/$defs/time"
+        },
+        "to": {
+          "type": "array",
+          "description": "issue: [{player, items: [{id, qty}]}]"
+        }
+      }
+    },
+    "tester": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "player"
+      ],
+      "description": "SPEC §5.2: a live game registers one of its accounts as a test account, for good: it crosses only with sandboxes; at most 20",
+      "properties": {
+        "type": {
+          "const": "tester"
+        },
+        "player": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "the account's pseudonym (as in offers)"
+        }
+      }
+    },
+    "issue": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "to",
+        "why"
+      ],
+      "description": "SPEC §4.2: the game's own gifts (compensation, events, paid things): never leave (R9), never growth past pace (R3)",
+      "properties": {
+        "type": {
+          "const": "issue"
+        },
+        "to": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "required": [
+              "player",
+              "items"
+            ],
+            "properties": {
+              "player": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "qty",
+                    "cgnl"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "cgnl": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "why": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "order": {
+          "$ref": "#/$defs/hash"
         }
       }
     }

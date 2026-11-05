@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { audit } from "./auditor.mjs";
 import { hashOf, newKey, seal } from "../ref/gnl.js";
 import { startNode, TOY } from "./node.mjs";
-import { contractMonths, links, publicOf } from "./rules.mjs";
+import { contractMonths, links, publicOf, testers } from "./rules.mjs";
 
 const SCENARIOS = [
   { name: "honest", expect: null },
@@ -35,6 +35,9 @@ const SCENARIOS = [
   // §5.2: B is still a sandbox, A live. Alice can't take toy things into A, A's test account can; B starts over (a
   // new log) and that's no fork — a live game can't
   { name: "stage", stageB: "sandbox" },
+  // §4.2: A makes up for a bug with 100 000 gold to alice — logged as `issue`, so it never leaves (R9) and B's audit
+  // doesn't take it for growth past pace (R3). A's test account can't cross with B, a live game (§5.2)
+  { name: "gift", gift: true, expect: null },
 ];
 
 /** A council member of the game at `origin`: their own key, their consent; `vote(order)` signs their yes. */
@@ -68,6 +71,13 @@ for (const s of SCENARIOS) {
   };
   try {
     for (let i = 0; i < (s.days ?? 5); i++) await day(); // Five days of alice's progress committed
+    if (s.gift) {
+      await A.issue([{ uid: "alice", items: [{ id: "gold", qty: 100_000 }] }], "sorry: a server bug ate a day's gold");
+      await day();
+      await assert.rejects(A.cross("alice", B.origin, [{ id: "gold", qty: 50_000 }], B.ticket("bob", A.origin)), /as gifts, and can.t leave/, "a gift doesn't leave");
+      A.earn("tester", { gold: 2000 }, true);
+      await assert.rejects(A.cross("tester", B.origin, [{ id: "gold", qty: 500 }], B.ticket("bob", A.origin)), /only with sandboxes/, "a test account and a live game");
+    }
     const before = { alice: A.player("alice"), bob: B.player("bob") };
     const tk = B.ticket("bob", A.origin);
     if (s.refused) {
@@ -82,9 +92,13 @@ for (const s of SCENARIOS) {
       const ok = await A.cross("tester", B.origin, [{ id: "gold", qty: 500 }], B.ticket("bob", A.origin));
       assert.ok(ok.grant, "A's test account crosses");
       assert.equal(ok.offer.payload.test, true, "and its offer says test");
+      const reg = testers((await publicOf(A.origin)).entries);
+      assert.ok(reg.set.has(ok.offer.payload.tester) && !reg.breaches.length, "registered as A's test account, in A's log");
       B.rewrite(); // B starts over
       await day();
       assert.deepEqual(await audit([A.origin, B.origin]), [], "a sandbox starting over is no fork");
+      const copies = await fetch(`${A.origin}/gnl/mirror/index.json`).then((x) => x.json());
+      assert.equal(copies.find((m) => m.of === B.origin)?.gens.length, 2, "A, B's witness, keeps B's old history apart");
       console.log(`ok    ${s.name.padEnd(8)} refused: alice (live A) → sandbox B; A's test account crossed, marked test; B's new history no fork`);
       continue;
     }

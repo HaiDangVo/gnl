@@ -85,6 +85,43 @@ export function forks(pubs) {
   return out;
 }
 
+/** §4.2: what the game itself gave pseudonym `p` (`issue`: gifts, compensation, paid things) on days `d1`..`d2`, both
+ * included (a day's state may be committed before or after that day's gift): never growth past pace. */
+export function issuedOn(entries, p, d1, d2) {
+  const out = {};
+  for (const e of entries)
+    if (e.payload.type === "issue" && e.payload.iat.slice(0, 10) >= d1 && e.payload.iat.slice(0, 10) <= d2)
+      for (const t of e.payload.to) if (t.player === p) for (const it of t.items) out[it.id] = (out[it.id] ?? 0) + it.qty;
+  return out;
+}
+const minus = (state, gift) => Object.fromEntries(Object.entries(state).map(([k, v]) => [k, typeof v === "number" ? v - (gift[k] ?? 0) : v]));
+
+/** §5.2: a live game's test accounts are pseudonyms it registered (`tester`), for good, at most TESTERS_MAX. */
+export const TESTERS_MAX = 20;
+const TESTERS_SINCE = "2026-11-06"; // Test crossings from before the registry are carried over
+/** The test accounts in a live game's log, checked: each test crossing names a tester registered before it, a tester
+ * never crosses for real, an account that crossed for real never becomes one. */
+export function testers(entries) {
+  const reg = new Set();
+  const real = new Set();
+  const breaches = [];
+  const start = [entries.find((e) => e.payload.type === "tester")?.payload.iat ?? TESTERS_SINCE, TESTERS_SINCE].sort()[0];
+  for (const { payload: p } of entries) {
+    if (p.type === "tester") {
+      if (reg.has(p.player) || real.has(p.player)) breaches.push(`tester ${p.player.slice(0, 8)}…: registered twice, or after crossing for real`);
+      reg.add(p.player);
+      if (reg.size === TESTERS_MAX + 1) breaches.push(`more than ${TESTERS_MAX} test accounts`);
+    }
+    if ((p.type !== "offer" && p.type !== "accept") || p.iat < start) continue;
+    if (p.test && !(reg.has(p.tester) && (p.type === "accept" || p.tester === p.player))) breaches.push(`${p.type} ${p.id}: marked test, no registered tester`);
+    if (!p.test && p.type === "offer") {
+      if (reg.has(p.player)) breaches.push(`offer ${p.id}: a test account crossing for real`);
+      real.add(p.player);
+    }
+  }
+  return { set: reg, breaches };
+}
+
 /** R3 and R4 on an audit reply: every day proved, growth within the card's pace, and the burn showing the next day. */
 export function auditFinds(pubA, offer, burn, reply) {
   const r = reply?.payload;
@@ -95,7 +132,8 @@ export function auditFinds(pubA, offer, burn, reply) {
   const pace = pubA.card.payload.pace;
   for (let i = 1; i < r.days.length; i++) {
     const [prev, next] = [r.days[i - 1], r.days[i]];
-    const broke = paceBreaks(pace, prev.state, next.state, (Date.parse(next.day) - Date.parse(prev.day)) / 1000);
+    const gift = issuedOn(pubA.entries, p, prev.day, next.day); // The game's own gifts aren't growth (§4.2)
+    const broke = paceBreaks(pace, prev.state, minus(next.state, gift), (Date.parse(next.day) - Date.parse(prev.day)) / 1000);
     if (broke.length) return { rule: "R3", why: `${broke.join(", ")} grew past pace from ${prev.day} to ${next.day}` };
   }
   const burnt = burn.payload.iat.slice(0, 10);
@@ -103,9 +141,10 @@ export function auditFinds(pubA, offer, burn, reply) {
   const after = r.days.find((d) => d.day > burnt);
   if (!before || !after) return null; // Nothing committed since the burn yet
   const hours = (Date.parse(after.day) - Date.parse(before.day)) / 3_600_000;
+  const gift = issuedOn(pubA.entries, p, before.day, after.day);
   for (const it of offer.payload.items) {
     const g = pace[it.id] ?? { burst: 0, perHour: 0 };
-    if ((after.state[it.id] ?? 0) > (before.state[it.id] ?? 0) - it.qty + g.burst + g.perHour * hours)
+    if ((after.state[it.id] ?? 0) - (gift[it.id] ?? 0) > (before.state[it.id] ?? 0) - it.qty + g.burst + g.perHour * hours)
       return { rule: "R4", why: `${it.qty} ${it.id} burnt on ${burnt}, still there on ${after.day}` };
   }
   return null;

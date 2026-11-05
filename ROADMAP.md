@@ -77,6 +77,11 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] R10 ghi log: `link` on/off, mỗi accept ghi `holder`; `links()` kiểm từ log, auditor đối chiếu với offer của game gửi, conformance kiểm
 - [x] Endless Run là sandbox thứ hai: tài khoản thật của Res World không chuyển với sandbox nào
 - [x] Sandbox rồi mới live (SPEC §5.2): `stage` trong rate card; sandbox được làm lại từ đầu, không tính fork; lên live một lần, phải thử đủ hai chiều trước; game live chỉ cho tài khoản test chuyển với sandbox, đánh dấu `test`. Conformance kiểm hết (demo `stage`)
+- [x] Log không mất (SPEC §5.2, §6.3): lên live giữ nguyên log sandbox; nhân chứng giữ bản sao mọi log (`/gnl/mirror/`), lịch sử bị thay (sandbox làm lại, fork) cất riêng vĩnh viễn; hai sandbox và Res World làm nhân chứng cho mọi game trong mạng
+- [x] Tài khoản test đăng ký trong log (`tester`, SPEC §5.2): một lần là mãi, chỉ chuyển với sandbox, tài khoản đã chuyển thật không thành test được, tối đa 20. Conformance kiểm
+- [x] Staging (không bắt buộc): `staging` / `stagingOf` trong rate card; sửa bug sau khi live = sửa tiến (pause, cut, void, card mới), không viết lại log
+- [x] Đồ nhà phát (SPEC §4.2): quà, đền bù, đồ nạp tiền ghi `issue`, không bao giờ mang ra (R9), không bị tính là tăng quá pace (R3); đồ hiếm giá theo số giờ trung bình để có (§4.3); số không đo được chỉ đổi bằng phiếu, ±20% mỗi lần, 30 ngày một lần (§14). Demo `gift`
+- [ ] Res World: NTT, tiền tệ riêng có sổ công khai (quỹ đúc theo giờ chơi thật, chi bằng lệnh hội đồng, gốc Merkle số dư mỗi ngày); quà và đền bù ghi `issue`
 - [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
 - [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
 

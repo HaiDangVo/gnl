@@ -7,7 +7,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { arbitrage, contractWindow, hashOf, merkleRoot, newKey, seal } from "../ref/gnl.js";
-import { consentOk, links, orderOk, publicOf, r2, roster, signedBy, stageOf } from "./rules.mjs";
+import { consentOk, links, orderOk, publicOf, r2, roster, signedBy, stageOf, testers } from "./rules.mjs";
 
 export async function conform(origin) {
   const out = [];
@@ -60,7 +60,7 @@ export async function conform(origin) {
       else orders.set(hashOf(Object.fromEntries(Object.entries(p).filter(([k]) => k !== "ballots" && k !== "iat"))), p);
     }
     if (p.type === "council" && !(i >= first && i < seeded) && !orders.has(p.order)) unbacked.push(`council ${p.op} ${p.member.account}`);
-    if ((p.type === "void" || p.type === "cut") && roster(pub.entries.slice(0, i), p.iat).members.length && orders.get(p.order)?.id !== p.id) unbacked.push(`${p.type} ${p.id}`);
+    if ((p.type === "void" || p.type === "cut" || p.type === "issue") && roster(pub.entries.slice(0, i), p.iat).members.length && orders.get(p.order)?.id !== p.id) unbacked.push(`${p.type} ${p.id}`);
   });
   check("council: after the first, every change and the game's own acts are orders its council signed (§14)", !unbacked.length, unbacked.slice(0, 3).join("; "));
   const l = links(pub.entries);
@@ -82,6 +82,14 @@ export async function conform(origin) {
     const stageAt = (o, t) => stageOf(others.get(o)?.entries.findLast((e) => e.payload.type === "card" && e.payload.iat <= t)?.payload);
     const unmarked = pub.entries.slice(from).filter((e) => (e.payload.type === "offer" || e.payload.type === "accept") && stageAt(e.payload.aud, e.payload.iat) !== "live" && !e.payload.test);
     check("stage: every crossing with a sandbox marked test (§5.2)", !unmarked.length, `${unmarked[0]?.payload.type} ${unmarked[0]?.payload.id}`);
+    const t = testers(pub.entries);
+    const toLive = pub.entries.filter((e) => e.payload.type === "offer" && t.set.has(e.payload.player) && stageAt(e.payload.aud, e.payload.iat) === "live");
+    check("stage: test accounts registered (`tester`), for good, only with sandboxes, at most 20 (§5.2)", !t.breaches.length && !toLive.length, t.breaches[0] ?? `offer ${toLive[0]?.payload.id} to a live game`);
+  }
+  // §5.2: a staging copy, when a live game names one, is a sandbox naming it back
+  if (c.staging) {
+    const st = await publicOf(c.staging).catch(() => null);
+    check("staging: a sandbox whose card names this game back (stagingOf)", st?.card.payload.stage === "sandbox" && st.card.payload.stagingOf === origin, st ? `${st.card.payload.stage}, stagingOf ${st.card.payload.stagingOf}` : "unreachable");
   }
   const effort = await fetch(`${origin}/gnl/effort.json`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
   check("effort sheet: /gnl/effort.json, a thing for each export at the card's prices (§4.1)", effort && c.exports.every((x) => effort.things?.some((t) => t.id === x.id && t.out === x.cgnlPer)), "missing or off the card");

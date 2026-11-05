@@ -77,6 +77,11 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] R10 logged: `link` on/off, each accept naming its `holder`; `links()` checks it from the log, the auditor against the giving game's offers, conformance too
 - [x] Endless Run is the second sandbox: Res World's real accounts cross with neither
 - [x] Sandbox, then live (SPEC §5.2): `stage` in the card; a sandbox may start over, no fork; live once, after trying both ways; a live game crosses with sandboxes only for its test accounts, marked `test`. All checked by conformance (demo `stage`)
+- [x] Logs don't get lost (SPEC §5.2, §6.3): going live keeps the sandbox log; witnesses keep a copy of every log (`/gnl/mirror/`), a replaced history (a sandbox starting over, a fork) kept apart for good; the two sandboxes and Res World witness every game in the network
+- [x] Test accounts registered in the log (`tester`, SPEC §5.2): for good, only with sandboxes, never an account that crossed for real, at most 20. Checked by conformance
+- [x] Staging (optional): `staging` / `stagingOf` in the card; bugs after going live are fixed forward (pause, cut, void, a new card), never by rewriting the log
+- [x] House things (SPEC §4.2): gifts, compensation, paid things logged as `issue`, never leave (R9), never growth past pace (R3); rare things priced at the expected hours to get them (§4.3); numbers no measurement sets change only by vote, ±20% a step, once every 30 days (§14). Demo `gift`
+- [ ] Res World: NTT, its own currency with public books (a treasury minted by real play hours, spent by council orders, a daily Merkle root of balances); gifts and compensation logged as `issue`
 - [ ] Res World: voting in game, `proposal` / `tally` in its log (backlog #368)
 - [ ] Protocol votes: each member game logs a `proposal` for a SPEC pull request, combined with `tallyProtocol()`
 
