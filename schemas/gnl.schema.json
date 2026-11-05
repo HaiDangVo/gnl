@@ -167,6 +167,9 @@
             },
             {
               "$ref": "#/$defs/tally"
+            },
+            {
+              "$ref": "#/$defs/council-vote"
             }
           ]
         },
@@ -328,6 +331,35 @@
           "maxItems": 64,
           "items": {
             "$ref": "#/$defs/origin"
+          }
+        },
+        "council": {
+          "type": "array",
+          "description": "SPEC §14: a host of more than one person lists its members",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "account",
+              "kid",
+              "x"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "account": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "kid": {
+                "type": "string"
+              },
+              "x": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -918,10 +950,32 @@
           "$ref": "#/$defs/hash"
         },
         "host": {
-          "enum": [
-            "yes",
-            "no"
-          ]
+          "oneOf": [
+            {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            {
+              "type": "object",
+              "required": [
+                "yes",
+                "of"
+              ],
+              "properties": {
+                "yes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "of": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          ],
+          "description": "The council's yes votes of its members (a council of one: yes/no)"
         },
         "eligible": {
           "type": "integer",
@@ -948,6 +1002,63 @@
         },
         "pass": {
           "type": "boolean"
+        }
+      }
+    },
+    "ballot": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "iss",
+        "member",
+        "proposal",
+        "choice"
+      ],
+      "description": "SPEC §14: a council member's vote, signed with the member's own key from the card's `council`",
+      "properties": {
+        "type": {
+          "const": "ballot"
+        },
+        "member": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "proposal": {
+          "$ref": "#/$defs/hash"
+        },
+        "choice": {
+          "enum": [
+            "yes",
+            "no"
+          ]
+        }
+      }
+    },
+    "council-vote": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "ballot"
+      ],
+      "description": "SPEC §14: the game logging a council member's signed ballot",
+      "properties": {
+        "type": {
+          "const": "council-vote"
+        },
+        "ballot": {
+          "type": "object",
+          "required": [
+            "payload",
+            "sig"
+          ]
         }
       }
     }

@@ -20,6 +20,8 @@ const SCENARIOS = [
   // the line doubled
   { name: "lapse", days: 24, renewB: false, refused: /isn't signed by both/ },
   { name: "renewed", days: 33, months: 2 },
+  // R9: what bob received from A can't leave B again — not back to A, not on to anyone (no laundering through B)
+  { name: "relay", relay: true },
 ];
 
 let port = 4100;
@@ -52,6 +54,15 @@ for (const s of SCENARIOS) {
       continue;
     }
     const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], tk);
+    if (s.relay) {
+      assert.ok(r.grant, "granted");
+      const gold = B.player("bob").gold;
+      await assert.rejects(B.cross("bob", A.origin, [{ id: "gold", qty: gold }], A.ticket("alice", B.origin)), /came from other games/);
+      const own = await B.cross("bob", A.origin, [{ id: "gold", qty: 100 }], A.ticket("alice", B.origin));
+      assert.ok(own.grant, "what bob earned at B still leaves");
+      console.log(`ok    ${s.name.padEnd(8)} refused: bob's ${gold} gold would carry on what came from A (R9); 100 of his own went`);
+      continue;
+    }
     if (s.months) {
       assert.ok(r.grant, "granted");
       const n = contractMonths(await publicOf(B.origin), await publicOf(A.origin), A.state.log.at(-1).payload.iat);

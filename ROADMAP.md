@@ -46,11 +46,11 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] Trong game: Tài khoản → "Mang nỗ lực sang game khác"; trang wiki Giờ Nổ Lực
 - [x] Trần giờ 16 h/ngày (game 18+ từ v0.11.38)
 - [x] Chạy thật trên tài khoản test: Sandbox → RW, RW → Endless Run (CC), RW → Sandbox (tu vi), auditor sạch trên cả 3 game
-- [x] Lỗ tìm ra khi test: khôi phục save cũ sau khi đốt làm nhân đôi đồ. Đã vá (save vượt pace ở thứ đã rời đi bị từ chối 30 ngày sau khi chuyển), SPEC §13
+- [x] Lỗ tìm ra khi test: khôi phục save cũ sau khi đốt làm nhân đôi đồ. Vá lần 1 bằng pace thì vẫn lọt sau đủ nhiều giờ (2026-11-05). Vá lần 2: server đếm số lần chuyển vào chính save, save đếm ít hơn tài khoản thì từ chối vĩnh viễn; đã chạy lại tấn công, bị chặn. SPEC §13
+- [x] Nhập tu vi: vào thanh của tầng đang tu, đầy thì chờ, không tự đột phá (2026-11-05)
+- [x] MCP: `gnl_rates`, `gnl_effort` (chỉ đọc) trên `resworldMcp`
 - [x] Hết định giá cao do làm tròn: CC tính theo nghìn (100 CC chỉ đáng 0.33 cgnl mà bị làm tròn lên 1), tầng tu vi nào 1% chưa tới 1 cgnl thì không xuất. Cả hai có lợi cho đối tác nên có hiệu lực ngay (SPEC §4)
-- [ ] Nhập tu vi (hiện chỉ nhập CC/Linh Thạch)
 - [x] Neo Ronin cho Res World, gián tiếp: hai sandbox ký xác nhận checkpoint của Res World mỗi ngày, và checkpoint của chúng lên Ronin Saigon mỗi ngày. Không thêm thư viện chain vào game. Neo trực tiếp khi lên mainnet
-- [ ] MCP: tool đọc Giờ Nổ Lực trên `resworldMcp`
 - [ ] Mở beta cho mọi người chơi
 
 ## Hợp đồng và bỏ phiếu (2026-11-05)
@@ -59,6 +59,8 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] Hạn mức tuần (R5) nhân đôi mỗi tháng gia hạn liền mạch
 - [x] Giá đổi được mỗi tuần, có hiệu lực từ thứ Hai cách ít nhất 7 ngày sau khi ghi log; đổi có lợi cho đối tác thì có hiệu lực ngay (SPEC §4). Mỗi bản rate card mới được ghi vào log
 - [x] Luật bỏ phiếu (SPEC §14): host 50, cộng đồng 50, cần 55; người chơi đủ điều kiện là đã có trong cam kết hằng ngày ≥ 30 ngày và chơi ≥ 10 giờ trong 30 ngày; phiếu ẩn danh một lần, có bằng chứng Merkle; game dưới 30 người đủ điều kiện thì host tự quyết và ghi rõ. `tally()` trong `ref/gnl.js`
+- [x] Hội đồng host (SPEC §14): danh sách công khai trong rate card, mỗi thành viên có tài khoản trong game và khoá riêng, phiếu ký công khai; 50 chia đều theo đầu người, hội đồng chỉ tự chặn được khi cả hội đồng phản đối
+- [x] Game đẻ ra để cày giờ (SPEC §13.1): R9 cấm chuyển tiếp cái đã nhận (demo `relay`), hạn mức ròng 90 ngày (R5) đã chạy thật, auditor có báo cáo dòng chảy (`npm run audit`, MCP `gnl_flows`), danh sách việc phải kiểm trước khi ký đối tác mới (§5.1)
 - [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
 - [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
 

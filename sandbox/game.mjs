@@ -250,8 +250,13 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const held = s.players[uid]?.held ?? {};
     for (const it of items) if ((st[it.id] ?? 0) - (held[it.id] ?? 0) < it.qty) throw fail(400, "NOT_ENOUGH", `too little ${it.id}`);
     const p = pseudonym(uid);
-    if (!(await days.get(today()))?.leaves.some((l) => l.p === p)) await commit(); // Not in today's commitment yet (joined since)
     const rated = items.map((it) => ({ id: it.id, qty: it.qty, cgnl: it.qty * exp[it.id] }));
+    // R9, no pass-through: what came in from other games never leaves again — only effort spent here does
+    const received = Object.values(s.accepts).filter((x) => x.uid === uid && s.grants[x.acc.payload.id]).reduce((n, x) => n + x.acc.payload.cgnl, 0);
+    const mine = worth(Object.entries(st).map(([id, qty]) => ({ id, qty })).filter((it) => exp[it.id])) - received;
+    const asked = rated.reduce((n, it) => n + it.cgnl, 0);
+    if (asked > mine) throw fail(422, "R9", `${asked} cgnl asked, ${Math.max(0, mine)} earned here (${received} came from other games and can't leave again)`);
+    if (!(await days.get(today()))?.leaves.some((l) => l.p === p)) await commit(); // Not in today's commitment yet (joined since)
     const offer = append({
       type: "offer", id: rid(), aud: to, ticket: tk, player: p, items: rated, cgnl: rated.reduce((n, it) => n + it.cgnl, 0),
       first: await proofFor(p, s.first[p]), commit: await proofFor(p, today()), exp: at(1),
@@ -325,6 +330,12 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const week = Object.values(s.accepts).filter((x) => x.from === o.iss && x.acc.payload.iat > at(-7)).reduce((n, x) => n + x.acc.payload.cgnl, 0);
     const line = Math.min(policy.lineCap, policy.lineStart * 2 ** (contractMonths(me, a, at()) - 1)); // R5: doubles each month renewed
     if (week + o.cgnl > line) throw fail(429, "R5", `line: ${week} of ${line} taken this week`);
+    // R5's net: what came from that game minus what went to it, 90 days, at most 4 lines — a one-way pump stops
+    const since = at(-90);
+    const took = Object.values(s.accepts).filter((x) => x.from === o.iss && x.acc.payload.iat > since).reduce((n, x) => n + x.acc.payload.cgnl, 0);
+    const burnt = new Set(s.log.filter((e) => e.payload.type === "burn" && e.payload.aud === o.iss).map((e) => e.payload.id));
+    const gave = s.log.filter((e) => e.payload.type === "offer" && e.payload.aud === o.iss && e.payload.iat > since && burnt.has(e.payload.id)).reduce((n, e) => n + e.payload.cgnl, 0);
+    if (took - gave + o.cgnl > 4 * line) throw fail(429, "R5", `net: ${took - gave} of ${4 * line} taken from that game in 90 days`);
     const grant = (await grantFor(o.cgnl, imp, tk)).filter((g) => g.qty > 0);
     if (!grant.length) throw fail(422, "TOO_LITTLE", "too little effort to give anything for");
     tk.used = true;

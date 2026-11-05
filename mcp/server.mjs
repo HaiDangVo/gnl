@@ -12,7 +12,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { hashOf } from "../ref/gnl.js";
-import { audit } from "../sandbox/auditor.mjs";
+import { audit, flows } from "../sandbox/auditor.mjs";
 import { conform } from "../sandbox/conform.mjs";
 import { publicOf, signedBy } from "../sandbox/rules.mjs";
 
@@ -81,6 +81,12 @@ server.registerTool(
     const found = await audit(origins);
     return data(origins.join(", "), found.length ? found.map(({ against, rule, why }) => ({ against, rule, why })) : "clean");
   },
+);
+
+server.registerTool(
+  "gnl_flows",
+  { title: "Where effort flows", description: "From the games' public logs: each game's age, partners, effort sent and received in 90 days, and patterns worth a human's look before signing or renewing a contract (young, one-way, single partner, relay — SPEC §13.1). Not proofs.", inputSchema: { origins: z.array(origin).min(1).max(16) }, annotations: RO },
+  async ({ origins }) => data(origins.join(", "), (await flows(origins)).games),
 );
 
 server.registerTool(

@@ -48,6 +48,13 @@ assert.equal(tally({ host: "no", yes: 100, eligible: 100 }).pass, false);
 assert.equal(tally({ host: "yes", yes: 9, eligible: 100 }).pass, false);
 assert.equal(tally({ host: "yes", yes: 10, eligible: 100 }).pass, true);
 assert.equal(tally({ host: "yes", yes: 0, eligible: 3 }).pass, true, "a small game: its host decides, and the tally shows eligible 3");
+// A council of 5 weighs 10 a member: a dissenting member and the community pass only with 90% of the eligible players;
+// the council blocks alone only when all five say no
+const five = (h, yes) => tally({ host: { yes: h, of: 5 }, yes, eligible: 100 }).pass;
+assert.deepEqual([5, 4, 3, 2, 1].map((h) => [h, [9, 10, 29, 30, 49, 50, 69, 70, 89, 90].find((y) => five(h, y))]), [[5, 10], [4, 30], [3, 50], [2, 70], [1, 90]]);
+assert.equal(five(0, 100), false);
+assert.equal(tally({ host: { yes: 3, of: 5 }, yes: 0, eligible: 10 }).pass, true, "a small game: its council's own 55% (3 of 5)");
+assert.equal(tally({ host: { yes: 2, of: 5 }, yes: 10, eligible: 10 }).pass, false);
 const games = [{ host: "yes", yes: 50, eligible: 100 }, { host: "no", yes: 100, eligible: 100 }, { host: "yes", yes: 0, eligible: 100 }];
 assert.equal(tallyProtocol(games).pass, true, "(75 + 50 + 50) / 3 ≈ 58");
 assert.equal(tallyProtocol(games.slice(1)).pass, false, "(50 + 50) / 2 = 50");

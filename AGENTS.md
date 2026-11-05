@@ -45,7 +45,7 @@ mechanically (SPEC §7, §13) and cut off automatically. There is no token, no c
 ## MCP
 
 `mcp/server.mjs` is read-only and holds no secrets. It provides these tools: `gnl_spec`, `gnl_sandboxes`,
-`gnl_card`, `gnl_conform`, `gnl_audit` and `gnl_verify`.
+`gnl_card`, `gnl_conform`, `gnl_audit`, `gnl_flows` and `gnl_verify`.
 
 ```sh
 claude mcp add gnl -- node /path/to/gnl/mcp/server.mjs

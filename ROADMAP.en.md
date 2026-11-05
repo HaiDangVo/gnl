@@ -46,11 +46,11 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] In game: Account → "Carry your effort to other games"; a wiki page
 - [x] A 16 h daily ceiling (the game is 18+ since v0.11.38)
 - [x] Run for real on test accounts: Sandbox → RW, RW → Endless Run (CC), RW → Sandbox (cultivation), auditor clean on all three games
-- [x] A hole found testing: restoring an old save after a burn duplicated things. Closed (a save past the pace in what left is refused for 30 days after a crossover), SPEC §13
+- [x] A hole found testing: restoring an old save after a burn duplicated things. The first fix (by pace) still let it through once enough hours had passed (2026-11-05). The second: the server counts crossovers into the save itself, and a save counting fewer than the account is refused for good; the attack replayed and blocked. SPEC §13
+- [x] Importing cultivation: onto the current layer's bar, waiting once full, never breaking through (2026-11-05)
+- [x] MCP: `gnl_rates`, `gnl_effort` (read-only) on `resworldMcp`
 - [x] No more overpricing from rounding: CC in thousands (100 CC was worth 0.33 cgnl, rounded up to 1), and a cultivation layer whose 1% is worth under 1 cgnl isn't exported. Both in partners' favor, so in force at once (SPEC §4)
-- [ ] Importing cultivation (only CC and Spirit Stones come in now)
 - [x] Ronin anchoring for Res World, indirectly: both sandboxes co-sign Res World's checkpoint daily, and theirs go on Ronin Saigon daily. No chain library in the game. Direct anchors at mainnet
-- [ ] MCP: Giờ Nổ Lực read tools on `resworldMcp`
 - [ ] Beta open to every player
 
 ## Contracts and votes (2026-11-05)
@@ -59,6 +59,8 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] The weekly line (R5) doubles with each month renewed without a break
 - [x] Rates may change weekly, in force from the first Monday at least 7 days after being logged; changes in partners' favor at once (SPEC §4). Every new rate card is logged
 - [x] Voting rules (SPEC §14): host 50, community 50, 55 to pass; a player is eligible after ≥ 30 days in the daily commitments and ≥ 10 hours played in 30 days; one-time anonymous ballots with Merkle proofs; with under 30 eligible players the host decides and says so. `tally()` in `ref/gnl.js`
+- [x] Host councils (SPEC §14): members public in the rate card, each with an account in the game and their own key, ballots signed in public; the 50 shared per head, a council blocks alone only when all of it says no
+- [x] Games made to farm effort (SPEC §13.1): R9 forbids passing on what came in (demo `relay`), R5's 90-day net enforced, the auditor's flow report (`npm run audit`, MCP `gnl_flows`), a checklist before signing a new partner (§5.1)
 - [ ] Res World: voting in game, `proposal` / `tally` in its log (backlog #368)
 - [ ] Protocol votes: each member game logs a `proposal` for a SPEC pull request, combined with `tallyProtocol()`
 
