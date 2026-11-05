@@ -2,7 +2,7 @@
  * The checks of SPEC §7 that need more than one envelope — shared by the sandbox's nodes (before they accept) and the
  * auditor (after the fact). Each returns null when the rule holds, or why it doesn't.
  */
-import { canonical, hashOf, merkleRoot, opens, paceBreaks, sha256, verifyInclusion } from "../ref/gnl.js";
+import { canonical, contractWindow, hashOf, merkleRoot, monthAdd, opens, paceBreaks, sha256, verifyInclusion } from "../ref/gnl.js";
 
 const DAY = 86_400_000;
 const type = (t) => (e) => e.payload.type === t;
@@ -106,4 +106,33 @@ export function auditFinds(pubA, offer, burn, reply) {
       return { rule: "R4", why: `${it.qty} ${it.id} burnt on ${burnt}, still there on ${after.day}` };
   }
   return null;
+}
+
+/** `pub`'s own contract with `other` for month `m`, signed in its window and by `t` (SPEC §5.1). */
+const signedFor = (pub, other, m, t) => {
+  const w = contractWindow(m);
+  return pub.entries.find((e) => type("contract")(e) && e.payload.aud === other && e.payload.month === m && e.payload.iat >= w.opens && e.payload.iat < w.ends && e.payload.iat <= t);
+};
+const both = (a, b, m, t) => signedFor(a, b.origin, m, t) && signedFor(b, a.origin, m, t);
+
+/** May these two games cross over at `t` (an ISO time)? null, or why not: no contract for this month, or its last 7
+ * days without next month's signed by both. `a`, `b`: `{origin, entries}` (a game's own log is enough for itself). */
+export function contractAt(a, b, t) {
+  const m = t.slice(0, 7);
+  if (!both(a, b, m, t)) return `no contract between ${a.origin} and ${b.origin} for ${m}`;
+  const next = monthAdd(m, 1);
+  if (t >= contractWindow(next).opens && !both(a, b, next, t)) return `the last week of ${m}: ${next}'s contract isn't signed by both yet`;
+  return null;
+}
+
+/** How many months running the contract has held at `t`: each one renewed (signed by both before it began). */
+export function contractMonths(a, b, t) {
+  let n = 0;
+  for (let m = t.slice(0, 7); ; m = monthAdd(m, -1)) {
+    const [x, y] = [signedFor(a, b.origin, m, t), signedFor(b, a.origin, m, t)];
+    if (!x || !y) return n;
+    n++;
+    const starts = contractWindow(m).starts;
+    if (x.payload.iat >= starts || y.payload.iat >= starts) return n; // Signed inside its month: a new start
+  }
 }

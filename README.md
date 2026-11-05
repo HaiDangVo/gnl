@@ -1,12 +1,14 @@
 # Giờ Nổ Lực
 
+[English](README.en.md) · Tiếng Việt
+
 **Mang công sức của mình từ game này sang game khác: minh bạch, công bằng, gần như miễn phí.**
 
 Bạn đã cày 300 giờ ở một game. Giờ muốn thử game khác mà không phải bắt đầu lại từ số 0? Với Giờ Nổ Lực, game cũ quy đổi những gì bạn đã đạt được (tiền, đồ, cấp, tu vi…) ra **giờ nỗ lực**. Bạn chọn mang đi một phần hoặc toàn bộ. Game mới tặng bạn một khởi đầu tương xứng, theo luật của chính nó. Đồ ở game cũ chỉ mất khi game mới đã ký cam kết nhận.
 
 Đây là **giao thức mở**: game nào, studio nào, server nào cũng tham gia được. Không token, không coin, không sàn, không ai đứng giữa ăn phí.
 
-> Trạng thái: **bản nháp 0** (11/2026). Chưa chạy với người chơi thật. Mời góp ý.
+> Trạng thái: **bản nháp 0** (11/2026). Res World (https://resworld.web.app) là game thật đầu tiên chạy giao thức, đang beta. Mời góp ý.
 
 ## Vì sao không ai lừa được ai
 
@@ -22,6 +24,8 @@ Không giao thức nào bắt một game *không thể* nói dối về dữ li�
    - Game mới chỉ nhận một hạn mức nhỏ mỗi tuần từ game lạ. Hạn mức chỉ tăng theo công thức khi hai bên làm ăn sạch.
    - Đồ nhận được mở dần theo giờ chơi thật ở game mới.
    - Có bằng chứng gian lận thì mọi game tự động cắt và thu hồi phần chưa mở.
+4. **Hợp đồng theo tháng.** Hai game chỉ chuyển qua lại khi cả hai đã ký hợp đồng cho tháng đó, mỗi bên ký vào log của mình. Muốn tiếp tục thì gia hạn trong 7 ngày cuối tháng; trong tuần đó, chưa đủ hai chữ ký cho tháng sau thì không chuyển được. Không gia hạn là hết hợp đồng. Giá quy đổi đổi được mỗi tuần, báo trước một tuần. Mỗi tháng gia hạn liền mạch thì hạn mức tuần nhân đôi.
+5. **Không ai tự quyết.** Mọi quyết định công khai (ký, gia hạn, kết thúc hợp đồng, đổi cách định giá, sửa giao thức) đều bỏ phiếu: host của game 50 phiếu, cộng đồng người chơi 50 phiếu, cần 55 để thông qua. Host phải có ít nhất 10% người chơi đủ điều kiện đồng ý; cộng đồng một mình cũng không đủ. Chi tiết SPEC §14.
 
 Ngoài ra, game nhận **không bao giờ thấy món đồ của game kia**, chỉ thấy số giờ, và tự định giá đồ của mình. Thanh kiếm rác từ game rác không thể biến thành thanh kiếm xịn ở game hot.
 
@@ -31,12 +35,12 @@ Chi tiết: [SPEC.md](SPEC.md). Lộ trình: [ROADMAP.md](ROADMAP.md).
 
 | | |
 |---|---|
-| `SPEC.md` | Giao thức `gnl/0`: rate card, 5 thông điệp, log, các luật R1–R8, API, bảo mật, pháp lý |
+| `SPEC.md` | Giao thức `gnl/0` (tiếng Anh): rate card, 5 thông điệp, hợp đồng, log, các luật R1–R8, API, bảo mật, pháp lý, bỏ phiếu |
 | `ROADMAP.md` | Lộ trình cụ thể từng giai đoạn |
 | `schemas/gnl.schema.json` | JSON Schema cho rate card, các thông điệp và log |
-| `ref/gnl.js` | Code tham chiếu (chỉ dùng `node:crypto`): canonical JSON (RFC 8785), ký/kiểm Ed25519, cây Merkle của log (RFC 9162), luật R2, R3 và R8 |
+| `ref/gnl.js` | Code tham chiếu (chỉ dùng `node:crypto`): canonical JSON (RFC 8785), ký/kiểm Ed25519, cây Merkle của log (RFC 9162), luật R2, R3 và R8, cửa sổ hợp đồng, kiểm phiếu |
 | `chain/` | Neo checkpoint lên Ronin (Saigon testnet / mainnet) |
-| `sandbox/` | Game sandbox nói `gnl/0` (`game.mjs`), auditor ai cũng chạy được (`auditor.mjs`), conformance test (`conform.mjs`), demo 1 lần sạch + 5 kiểu gian lận (`demo.mjs`) |
+| `sandbox/` | Game sandbox nói `gnl/0` (`game.mjs`), auditor ai cũng chạy được (`auditor.mjs`), conformance test (`conform.mjs`), demo 1 lần sạch + 5 kiểu gian lận + 2 kịch bản hợp đồng (`demo.mjs`) |
 | `cloud/` | Hai sandbox đang chạy thật (Firebase) |
 | `mcp/server.mjs` | MCP server cho agent: đọc SPEC, xem rate card, chạy conformance, audit, kiểm envelope. Chỉ đọc, không giữ bí mật |
 | `AGENTS.md` | Hướng dẫn cho AI agent: giúp một game tham gia, luật khi sửa repo |
@@ -47,7 +51,7 @@ npm run check                # tự kiểm code tham chiếu
 npm run wallet               # tạo ví Saigon, xem số dư (lấy RON test: https://faucet.roninchain.com)
 npm run anchor               # neo một checkpoint mẫu lên Saigon
 npm run anchor -- verify <tx hash>
-npm run sandbox              # 2 game sandbox: 1 lần chuyển sạch + 5 kiểu gian lận, auditor phải bắt đủ
+npm run sandbox              # 2 game sandbox: 1 lần chuyển sạch + 5 kiểu gian lận (auditor phải bắt đủ) + hợp đồng hết hạn / gia hạn
 npm run conform -- <origin>  # conformance test vào game của bạn
 npm run audit -- <origin>…   # auditor trên log công khai của các game
 ```
@@ -59,7 +63,7 @@ npm run audit -- <origin>…   # auditor trên log công khai của các game
 - https://gnl-endless.web.app: ví coin của game Endless Run
 - https://gnl-sandbox.web.app: game đồ chơi (vàng, cấp, ngọc)
 
-Mở thẳng hai link trên là thấy trang cho người xem: bảng quy đổi, nhật ký công khai, các mốc neo (Ronin, Bitcoin), và trình duyệt của bạn tự kiểm chữ ký cùng gốc Merkle, không cần tin server. Mỗi ngày hai game tự commit, ký xác nhận log của nhau và neo checkpoint vào Bitcoin (OpenTimestamps) và Ronin Saigon. Các bước thử bằng curl: xem `AGENTS.md`, hoặc tool MCP `gnl_sandboxes`.
+Mở thẳng hai link trên là thấy trang cho người xem: bảng quy đổi, nhật ký công khai, hợp đồng, các mốc neo (Ronin, Bitcoin), và trình duyệt của bạn tự kiểm chữ ký cùng gốc Merkle, không cần tin server. Mỗi ngày hai game tự commit, ký xác nhận log của nhau và neo checkpoint vào Bitcoin (OpenTimestamps) và Ronin Saigon. Các bước thử bằng curl: xem `AGENTS.md`, hoặc tool MCP `gnl_sandboxes`.
 
 ## Cho AI agent
 
@@ -68,13 +72,10 @@ Mở thẳng hai link trên là thấy trang cho người xem: bảng quy đổi
 ## Tham gia
 
 - Đọc `SPEC.md`, mở issue nếu thấy chỗ nào để lừa được. Đây là phần góp ý quý nhất.
-- Muốn cho game của bạn tham gia: làm theo SPEC, chạy thử với **game sandbox** (sắp có, xem ROADMAP), rồi mở issue để được thêm vào danh sách đối tác.
+- Muốn cho game của bạn tham gia: làm theo SPEC, chạy thử với hai sandbox ở trên, chạy conformance test, rồi mở issue để ký hợp đồng với các game đang chạy.
 - Mỗi game tự chịu trách nhiệm về pháp luật nơi mình hoạt động (SPEC §12).
 
 ## Giấy phép
 
 Code: MIT ([LICENSE](LICENSE)). Văn bản giao thức (SPEC.md): CC BY 4.0.
 
----
-
-**English, briefly.** Giờ Nổ Lực ("effort hours") is an open protocol that lets a player carry the effort they put into one game over to another. The first game retires what the player chooses to give up and signs what it was worth in hours. The second game grants its own things under its own rules. There is no token and no middleman. Each game keeps its own public, append-only log, witnessed by the other games and timestamped in Bitcoin. Lies are detected mechanically and cut off automatically, and every game caps its own exposure. See SPEC.md.

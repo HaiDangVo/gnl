@@ -6,7 +6,7 @@
  *   npm run conform -- https://your-game.example
  */
 import { randomBytes } from "node:crypto";
-import { merkleRoot, newKey, seal, arbitrage } from "../ref/gnl.js";
+import { arbitrage, contractWindow, hashOf, merkleRoot, newKey, seal } from "../ref/gnl.js";
 import { publicOf, r2, signedBy } from "./rules.mjs";
 
 export async function conform(origin) {
@@ -37,6 +37,10 @@ export async function conform(origin) {
   check("checkpoint: from the last 26 hours", age < 26 * 3_600_000, `${Math.round(age / 3_600_000)} h old`);
   const commit = pub.entries.findLast((e) => e.payload.type === "commit");
   check("daily commitment: one in the last 26 hours", commit && Date.now() - Date.parse(commit.payload.iat) < 26 * 3_600_000, commit ? commit.payload.day : "none");
+  check("card: the card served is in the log, dated (§4)", pub.entries.some((e) => e.payload.type === "card" && hashOf(e.payload) === hashOf(c)), "not logged");
+  const contracts = pub.entries.filter((e) => e.payload.type === "contract");
+  const outside = contracts.filter((e) => !/^\d{4}-\d{2}$/.test(e.payload.month) || !(e.payload.iat >= contractWindow(e.payload.month).opens && e.payload.iat < contractWindow(e.payload.month).ends) || !/^https:\/\//.test(e.payload.aud));
+  check("contracts: each signed for a month, within its window (§5.1)", !outside.length, `${outside.length} not`);
   const bad = pub.entries.filter((e) => e.payload.type === "offer").map((e) => r2(pub, e)).filter(Boolean);
   check("R2: every logged offer within its time bound", !bad.length, bad[0]);
 

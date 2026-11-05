@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import { audit } from "./auditor.mjs";
 import { startNode } from "./node.mjs";
+import { contractMonths, publicOf } from "./rules.mjs";
 
 const SCENARIOS = [
   { name: "honest", expect: null },
@@ -15,6 +16,10 @@ const SCENARIOS = [
   { name: "pace", expect: ["A", "R3"] },
   { name: "fork", fork: true, expect: ["A", "R7", "forked"] },
   { name: "nogrant", cheatB: "nogrant", expect: ["B", "R7", "no grant"] },
+  // Contracts (SPEC §5.1): B lets November's run out — in its last week nothing crosses; both renew — into December,
+  // the line doubled
+  { name: "lapse", days: 24, renewB: false, refused: /isn't signed by both/ },
+  { name: "renewed", days: 33, months: 2 },
 ];
 
 let port = 4100;
@@ -28,6 +33,8 @@ for (const s of SCENARIOS) {
   const day = async () => {
     await A.newDay();
     await B.newDay();
+    A.contracts([B.origin]);
+    B.contracts([A.origin], { renew: s.renewB ?? true });
     // A day's play, scripted (`true`: past the online pace check) — the pace cheat fakes 100 000 gold on the third day
     A.earn("alice", { gold: 2000 + (s.name === "pace" && ++n === 3 ? 100_000 : 0), level: 1, gems: 5 }, true);
     B.earn("bob", { gold: 500 }, true);
@@ -36,9 +43,22 @@ for (const s of SCENARIOS) {
     await B.runAudits();
   };
   try {
-    for (let i = 0; i < 5; i++) await day(); // Five days of alice's progress committed
+    for (let i = 0; i < (s.days ?? 5); i++) await day(); // Five days of alice's progress committed
     const before = { alice: A.player("alice"), bob: B.player("bob") };
-    const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], B.ticket("bob", A.origin));
+    const tk = B.ticket("bob", A.origin);
+    if (s.refused) {
+      await assert.rejects(A.cross("alice", B.origin, [{ id: "gold", qty: 3000 }], tk), s.refused);
+      console.log(`ok    ${s.name.padEnd(8)} refused: no contract for next month in this one's last week`);
+      continue;
+    }
+    const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], tk);
+    if (s.months) {
+      assert.ok(r.grant, "granted");
+      const n = contractMonths(await publicOf(B.origin), await publicOf(A.origin), A.state.log.at(-1).payload.iat);
+      assert.equal(n, s.months, "two months running");
+      console.log(`ok    ${s.name.padEnd(8)} crossed in December, the contract ${n} months running (line ×2)`);
+      continue;
+    }
     await day(); // A commits the day after the burn; B audits
     await day();
     if (s.fork) A.rewrite();

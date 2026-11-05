@@ -41,6 +41,10 @@
   .what { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   pre { font: 12px/1.4 var(--mono); background: var(--chip); padding: 10px; border-radius: 6px; overflow: auto; max-height: 320px; }
   .muted { color: var(--soft); font-size: 13px; }
+  .lang { float: right; display: flex; gap: 4px; }
+  .lang button { font: 600 12px system-ui, sans-serif; background: var(--chip); color: var(--soft); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { color: var(--ink); border-color: var(--gold); }
+  .t-contract { color: var(--good); } .t-card { color: var(--gold); }
   @media (max-width: 600px) {
     .row summary { flex-wrap: wrap; justify-content: space-between; }
     .row .what { order: 3; flex-basis: 100%; }
@@ -51,29 +55,33 @@
 <body>
 <main>
   <header>
+    <div class="lang"><button data-lang="vi">Tiếng Việt</button><button data-lang="en">English</button></div>
     <small>Giờ Nổ Lực · node</small>
     <h1 id="name">…</h1>
     <div class="origin" id="origin"></div>
     <div class="pills" id="pills"></div>
   </header>
 
-  <h2>Kiểm tra ngay trong trình duyệt của bạn · Verified in your browser</h2>
-  <div class="card"><div id="checks" class="muted">Đang kiểm…</div></div>
+  <h2 data-t="checks"></h2>
+  <div class="card"><div id="checks" class="muted">…</div></div>
 
-  <h2>Bảng quy đổi · Rate card</h2>
+  <h2 data-t="rates"></h2>
   <div class="grid">
     <div class="card"><table id="rates"></table></div>
     <div class="card" id="policy"></div>
   </div>
 
-  <h2>Neo · Anchors</h2>
+  <h2 data-t="contracts"></h2>
+  <div class="card" id="contracts"></div>
+
+  <h2 data-t="anchors"></h2>
   <div class="card" id="anchors"></div>
 
-  <h2>Nhật ký công khai · Public log <span class="muted" id="logcount"></span></h2>
+  <h2><span data-t="log"></span> <span class="muted" id="logcount"></span></h2>
   <div class="card log" id="log"></div>
 
   <p class="muted" style="margin-top:32px">
-    Giao thức mở, đồ trong sandbox là đồ giả · An open protocol; sandbox items are fake ·
+    <span data-t="foot"></span> ·
     <a href="https://github.com/HaiDangVo/gnl">github.com/HaiDangVo/gnl</a> ·
     <span id="peers"></span>
   </p>
@@ -117,81 +125,154 @@ async function opens(env, keys) {
   return crypto.subtle.verify({ name: "Ed25519" }, key, unb64u(env.sig.value), enc.encode(canonical(env.payload)));
 }
 
+// The page's two languages: Vietnamese first (?lang=en or the button for English, remembered on this device)
+let lang = "vi";
+try {
+  lang = (new URLSearchParams(location.search).get("lang") ?? localStorage.getItem("gnl-lang")) === "en" ? "en" : "vi";
+} catch {}
+const T = (vi, en) => (lang === "en" ? en : vi);
+const HEAD = {
+  checks: ["Kiểm tra ngay trong trình duyệt của bạn", "Verified in your browser"],
+  rates: ["Bảng quy đổi", "Rate card"],
+  contracts: ["Hợp đồng", "Contracts"],
+  anchors: ["Neo", "Anchors"],
+  log: ["Nhật ký công khai", "Public log"],
+  foot: ["Giao thức mở, đồ trong sandbox là đồ giả", "An open protocol; sandbox items are fake"],
+};
+const host = (o) => esc(new URL(o).host);
+
 function describe(p) {
   switch (p.type) {
-    case "offer": return `Người chơi ${short(p.player)}… gửi đi ${p.items.map((i) => `${i.qty} ${esc(i.id)}`).join(", ")} = <b>${gnl(p.cgnl)}</b> → ${esc(new URL(p.aud).host)}`;
-    case "accept": return `Nhận cam kết từ ${esc(new URL(p.aud).host)}: <b>${gnl(p.cgnl)}</b> → cấp ${p.grant.map((g) => `${g.qty} ${esc(g.id)}`).join(", ")} (${Math.round(p.upfront * 100)}% ngay)`;
-    case "burn": return `Đã đốt đồ cho lần chuyển ${short(p.id)}… → ${esc(new URL(p.aud).host)}`;
-    case "grant": return `Đã cấp cho lần chuyển ${short(p.id)}… từ ${esc(new URL(p.aud).host)}`;
-    case "refund": return `Hoàn lại lần chuyển ${short(p.id)}… (${esc(p.why)})`;
-    case "commit": return `Cam kết ngày ${esc(p.day)}: ${p.size} người chơi, gốc ${short(p.root, 10)}…`;
-    case "cosign": return `Ký xác nhận log của ${esc(new URL(p.of).host)} (${p.checkpoint.payload.size} mục)`;
-    case "proof": return `<b>BẰNG CHỨNG GIAN LẬN</b> (${esc(p.rule)}) chống ${esc(new URL(p.against).host)}: ${esc(p.why ?? "")}`;
+    case "offer": return T(`Người chơi ${short(p.player)}… gửi đi`, `Player ${short(p.player)}… sends`) + ` ${p.items.map((i) => `${i.qty} ${esc(i.id)}`).join(", ")} = <b>${gnl(p.cgnl)}</b> → ${host(p.aud)}`;
+    case "accept": return T(`Nhận cam kết từ ${host(p.aud)}`, `Accepted from ${host(p.aud)}`) + `: <b>${gnl(p.cgnl)}</b> → ${T("cấp", "grants")} ${p.grant.map((g) => `${g.qty} ${esc(g.id)}`).join(", ")} (${Math.round(p.upfront * 100)}% ${T("ngay", "at once")})`;
+    case "burn": return T(`Đã đốt đồ cho lần chuyển ${short(p.id)}…`, `Burnt the things of crossover ${short(p.id)}…`) + ` → ${host(p.aud)}`;
+    case "grant": return T(`Đã cấp cho lần chuyển ${short(p.id)}… từ`, `Granted crossover ${short(p.id)}… from`) + ` ${host(p.aud)}`;
+    case "refund": return T(`Hoàn lại lần chuyển ${short(p.id)}…`, `Refunded crossover ${short(p.id)}…`) + ` (${esc(p.why)})`;
+    case "commit": return T(`Cam kết ngày ${esc(p.day)}: ${p.size} người chơi`, `Commitment for ${esc(p.day)}: ${p.size} players`) + `, ${T("gốc", "root")} ${short(p.root, 10)}…`;
+    case "cosign": return T(`Ký xác nhận log của ${host(p.of)}`, `Co-signed ${host(p.of)}'s log`) + ` (${p.checkpoint.payload.size} ${T("mục", "entries")})`;
+    case "proof": return `<b>${T("BẰNG CHỨNG GIAN LẬN", "FRAUD PROOF")}</b> (${esc(p.rule)}) ${T("chống", "against")} ${host(p.against)}: ${esc(p.why ?? "")}`;
+    case "card": return T(`Bảng quy đổi mới: ${p.exports.length} thứ xuất, ${p.imports.length} thứ nhập`, `A new rate card: ${p.exports.length} exports, ${p.imports.length} imports`);
+    case "contract": return T(`Ký hợp đồng tháng ${esc(p.month)} với ${host(p.aud)}`, `Signed ${esc(p.month)}'s contract with ${host(p.aud)}`);
+    case "proposal": return T(`Đưa ra bỏ phiếu: ${esc(p.what)}`, `Put to the vote: ${esc(p.what)}`);
+    case "tally": return T(`Kết quả bỏ phiếu: ${Math.round(p.weight)}/100, ${p.pass ? "thông qua" : "không qua"}`, `Vote result: ${Math.round(p.weight)}/100, ${p.pass ? "passed" : "failed"}`);
     default: return esc(p.type);
   }
 }
 
-async function main() {
+/** The contract windows, as ref/gnl.js has them: a month's side is valid from the last 7 days of the month before. */
+const monthAdd = (m, n) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)).toISOString().slice(0, 7);
+const windowOpens = (m) => new Date(Date.parse(`${m}-01T00:00:00Z`) - 7 * 86_400_000).toISOString();
+
+let data;
+async function load() {
   const [card, text, cp] = await Promise.all([
     fetch("/.well-known/gio-no-luc.json").then((r) => r.json()),
     fetch("/gnl/log/entries.jsonl").then((r) => r.text()),
     fetch("/gnl/log/checkpoint.json").then((r) => r.json()),
   ]);
   const entries = text.split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  // Each partner's side of the contracts, from its own log (where its server lets this page read it)
+  const theirs = {};
+  await Promise.all((card.payload.witnesses ?? []).map(async (o) => {
+    try {
+      const t = await fetch(`${o}/gnl/log/entries.jsonl`).then((r) => (r.ok ? r.text() : Promise.reject()));
+      theirs[o] = t.split("\n").filter(Boolean).map((l) => JSON.parse(l).payload).filter((p) => p.type === "contract" && p.aud === card.payload.iss);
+    } catch {
+      theirs[o] = null;
+    }
+  }));
+  const checks = [];
+  try {
+    const keys = card.payload.keys;
+    checks.push([["Rate card ký bằng khoá của chính game", "The rate card is signed by the game's own key"], await opens(card, keys)]);
+    checks.push([["Checkpoint có chữ ký hợp lệ", "The checkpoint's signature is valid"], await opens(cp, keys)]);
+    checks.push([[`Gốc Merkle của ${entries.length} mục khớp checkpoint`, `The ${entries.length} entries hash to the checkpoint`], cp.payload.size === entries.length && (await root(entries)) === cp.payload.root]);
+    let bad = 0;
+    for (const e of entries.slice(-200)) if (!(await opens(e, keys))) bad++;
+    checks.push([[`Chữ ký của ${Math.min(200, entries.length)} mục gần nhất`, `The latest ${Math.min(200, entries.length)} entries are signed`], bad === 0]);
+  } catch (e) {
+    checks.push([[`Trình duyệt này chưa kiểm được Ed25519 (${esc(e.message)})`, `This browser can't verify Ed25519 (${esc(e.message)})`], null]);
+  }
+  data = { card, entries, cp, theirs, checks };
+}
+
+function render() {
+  const { card, entries, cp, theirs, checks } = data;
+  document.documentElement.lang = lang;
+  for (const b of document.querySelectorAll(".lang button")) b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+  for (const el of document.querySelectorAll("[data-t]")) el.textContent = T(...HEAD[el.dataset.t]);
   const c = card.payload;
   document.title = `${c.game.name} · Giờ Nổ Lực`;
   $("name").textContent = c.game.name;
   $("origin").textContent = c.iss;
   const count = (t) => entries.filter((e) => e.payload.type === t).length;
-  const proofs = entries.filter((e) => e.payload.type === "proof");
+  const proofs = count("proof");
   $("pills").innerHTML = [
-    `<span class="pill">${entries.length} mục trong log</span>`,
-    `<span class="pill">${count("offer")} lần gửi đi · ${count("grant")} lần nhận về</span>`,
+    `<span class="pill">${entries.length} ${T("mục trong log", "log entries")}</span>`,
+    `<span class="pill">${count("offer")} ${T("lần gửi đi", "sent")} · ${count("grant")} ${T("lần nhận về", "received")}</span>`,
     `<span class="pill">checkpoint ${time(cp.payload.t)}</span>`,
-    proofs.length ? `<span class="pill bad">${proofs.length} bằng chứng gian lận đã ghi</span>` : `<span class="pill ok">không có bằng chứng gian lận</span>`,
+    proofs ? `<span class="pill bad">${proofs} ${T("bằng chứng gian lận đã ghi", "fraud proofs logged")}</span>` : `<span class="pill ok">${T("không có bằng chứng gian lận", "no fraud proofs")}</span>`,
   ].join("");
-
-  // The checks: the card and checkpoint signed by the game's own key, the entries hashing to the checkpoint
-  const checks = [];
-  try {
-    const keys = c.keys;
-    checks.push(["Rate card ký bằng khoá của chính game · card signed by its own key", await opens(card, keys)]);
-    checks.push(["Checkpoint có chữ ký hợp lệ · checkpoint signature", await opens(cp, keys)]);
-    checks.push([`Gốc Merkle của ${entries.length} mục khớp checkpoint · entries hash to the checkpoint`, cp.payload.size === entries.length && (await root(entries)) === cp.payload.root]);
-    let bad = 0;
-    for (const e of entries.slice(-200)) if (!(await opens(e, keys))) bad++;
-    checks.push([`Chữ ký của ${Math.min(200, entries.length)} mục gần nhất · latest entries signed`, bad === 0]);
-  } catch (e) {
-    checks.push([`Trình duyệt này chưa kiểm được Ed25519 (${esc(e.message)}) · this browser can't verify Ed25519`, null]);
-  }
-  $("checks").innerHTML = checks.map(([t, ok]) => `<div>${ok === true ? "✅" : ok === false ? "❌" : "⚠️"} ${t}</div>`).join("");
+  $("checks").innerHTML = checks.map(([t, ok]) => `<div>${ok === true ? "✅" : ok === false ? "❌" : "⚠️"} ${T(...t)}</div>`).join("");
 
   const imp = Object.fromEntries(c.imports.map((r) => [r.id, r.cgnlPer]));
-  $("rates").innerHTML = `<tr><th>Thứ · Thing</th><th style="text-align:right">Xuất · out</th><th style="text-align:right">Nhập · in</th></tr>` +
+  $("rates").innerHTML = `<tr><th>${T("Thứ", "Thing")}</th><th style="text-align:right">${T("Xuất", "Out")}</th><th style="text-align:right">${T("Nhập", "In")}</th></tr>` +
     c.exports.map((r) => `<tr><td>${esc(r.name)} <span class="muted">(${esc(r.unit)})</span></td><td class="n">${gnl(r.cgnlPer)}</td><td class="n">${imp[r.id] ? gnl(imp[r.id]) : "—"}</td></tr>`).join("") +
-    `<tr><td colspan="3" class="muted">Mỗi đơn vị đáng bao nhiêu Giờ Nổ Lực. Nhập luôn ≥ xuất (R8), nên không vòng chuyển nào sinh lời.</td></tr>`;
+    `<tr><td colspan="3" class="muted">${T("Mỗi đơn vị đáng bao nhiêu Giờ Nổ Lực. Nhập luôn ≥ xuất (R8), nên không vòng chuyển nào sinh lời. Giá đổi tối đa mỗi tuần một lần, báo trước một tuần.", "What each unit is worth in Giờ Nổ Lực. In always costs ≥ out (R8), so no loop of crossovers gains anything. Rates change at most once a week, with a week's notice.")} ${T("Bảng này từ", "This card since")} ${time(c.iat)}.</td></tr>`;
   $("policy").innerHTML = `
-    <div><b>Trần giờ mỗi ngày</b>: ${c.hoursPerDay.adult} giờ (người lớn), ${c.hoursPerDay.minor} giờ (dưới 18)</div>
-    <div><b>Hạn mức nhận mỗi tuần từ một game</b>: ${gnl(c.policy.lineStart)} (tối đa ${gnl(c.policy.lineCap)})</div>
-    <div><b>Nhận ngay</b>: ${Math.round(c.policy.upfront * 100)}%, phần còn lại mở dần khi chơi</div>
-    <div><b>Tốc độ tối đa</b>: ${Object.entries(c.pace).map(([f, g]) => `${esc(f)} ${g.burst} + ${g.perHour}/giờ`).join(" · ")}</div>
-    <div class="muted" style="margin-top:6px">Quốc gia: ${esc(c.game.jurisdiction)} · khoá ${c.keys.map((k) => esc(k.kid)).join(", ")}</div>`;
+    <div><b>${T("Trần giờ mỗi ngày", "Daily ceiling")}</b>: ${c.hoursPerDay.adult} ${T("giờ (người lớn)", "h (adults)")}, ${c.hoursPerDay.minor} ${T("giờ (dưới 18)", "h (under 18)")}</div>
+    <div><b>${T("Hạn mức nhận mỗi tuần từ một game", "Weekly line per partner")}</b>: ${gnl(c.policy.lineStart)}, ${T("nhân đôi mỗi tháng hợp đồng được gia hạn, tối đa", "doubling each month the contract is renewed, up to")} ${gnl(c.policy.lineCap)}</div>
+    <div><b>${T("Nhận ngay", "At once")}</b>: ${Math.round(c.policy.upfront * 100)}%, ${T("phần còn lại mở dần khi chơi", "the rest unlocks with play")}</div>
+    <div><b>${T("Tốc độ tối đa", "Pace")}</b>: ${Object.entries(c.pace).map(([f, g]) => `${esc(f)} ${g.burst} + ${g.perHour}/${T("giờ", "h")}`).join(" · ")}</div>
+    <div class="muted" style="margin-top:6px">${T("Quốc gia", "Jurisdiction")}: ${esc(c.game.jurisdiction)} · ${T("khoá", "keys")} ${c.keys.map((k) => esc(k.kid)).join(", ")}</div>`;
+
+  // Contracts: this month's and next, each side, and whether crossing is open now (SPEC §5.1)
+  const now = new Date().toISOString();
+  const m = now.slice(0, 7);
+  const next = monthAdd(m, 1);
+  const lastWeek = now >= windowOpens(next);
+  const mine = entries.map((e) => e.payload).filter((p) => p.type === "contract");
+  const has = (list, o, mo) => list?.some((p) => (p.aud === o || o === null) && p.month === mo);
+  const mark = (v) => (v === null ? "?" : v ? "✅" : "—");
+  $("contracts").innerHTML = (c.witnesses ?? []).length
+    ? `<table><tr><th>${T("Đối tác", "Partner")}</th><th>${esc(m)}</th>${lastWeek ? `<th>${esc(next)}</th>` : ""}<th>${T("Chuyển được", "Open")}</th></tr>` +
+      c.witnesses.map((o) => {
+        const t = theirs[o];
+        const side = (mo) => `${T("mình", "us")} ${mark(has(mine, o, mo))} · ${T("họ", "them")} ${t === null ? "?" : mark(has(t, null, mo))}`;
+        const open = has(mine, o, m) && (t === null || has(t, null, m)) && (!lastWeek || (has(mine, o, next) && (t === null || has(t, null, next))));
+        return `<tr><td><a href="${esc(o)}">${host(o)}</a></td><td>${side(m)}</td>${lastWeek ? `<td>${side(next)}</td>` : ""}<td>${open ? "✅" : "⛔"}</td></tr>`;
+      }).join("") +
+      `<tr><td colspan="4" class="muted">${T("Hợp đồng theo tháng, mỗi bên ký vào log của mình. Gia hạn trong 7 ngày cuối tháng; trong tuần đó chưa đủ hai chữ ký cho tháng sau thì không chuyển được. ? = trang này không đọc được log của họ.", "Monthly contracts, each side signed in its own log. Renewed in the month's last 7 days; in that week nothing crosses until both have signed next month's. ? = this page can't read their log.")}</td></tr></table>`
+    : `<span class="muted">${T("Chưa có đối tác.", "No partners yet.")}</span>`;
 
   const anchors = cp.payload.anchors ?? [];
   $("anchors").innerHTML = anchors.length
     ? anchors.slice().reverse().map((a) => a.kind === "ronin"
         ? `<div>⛓️ Ronin Saigon · <a href="https://saigon-explorer.roninchain.com/tx/${esc(a.ref.split(":")[1])}">${short(a.ref.split(":")[1], 18)}…</a> <span class="muted">checkpoint ${short(a.checkpoint, 10)}…</span></div>`
-        : `<div>₿ Bitcoin (OpenTimestamps) · <a download="checkpoint-${short(a.checkpoint, 10)}.ots" href="data:application/octet-stream;base64,${esc(a.ref)}">tải file .ots</a> <span class="muted">checkpoint ${short(a.checkpoint, 10)}… · kiểm bằng <code>ots upgrade</code> rồi <code>ots verify</code></span></div>`).join("")
-    : `<span class="muted">Chưa có neo nào trong checkpoint này.</span>`;
+        : `<div>₿ Bitcoin (OpenTimestamps) · <a download="checkpoint-${short(a.checkpoint, 10)}.ots" href="data:application/octet-stream;base64,${esc(a.ref)}">${T("tải file .ots", "download the .ots")}</a> <span class="muted">checkpoint ${short(a.checkpoint, 10)}… · ${T("kiểm bằng", "check with")} <code>ots upgrade</code> ${T("rồi", "then")} <code>ots verify</code></span></div>`).join("")
+    : `<span class="muted">${T("Chưa có neo nào trong checkpoint này.", "No anchors in this checkpoint yet.")}</span>`;
 
   $("logcount").textContent = `(${entries.length})`;
   $("log").innerHTML = entries.slice().reverse().slice(0, 150).map((e) => `
     <details class="row"><summary><span class="tag t-${esc(e.payload.type)}">${esc(e.payload.type)}</span><span class="what">${describe(e.payload)}</span><span class="when">${time(e.payload.iat)}</span></summary>
-    <pre>${esc(JSON.stringify(e, null, 1))}</pre></details>`).join("") || `<span class="muted">Log trống.</span>`;
+    <pre>${esc(JSON.stringify(e, null, 1))}</pre></details>`).join("") || `<span class="muted">${T("Log trống.", "The log is empty.")}</span>`;
 
-  $("peers").innerHTML = (c.witnesses ?? []).map((o) => `game đối tác: <a href="${esc(o)}">${esc(new URL(o).host)}</a>`).join(" · ");
+  $("peers").innerHTML = (c.witnesses ?? []).map((o) => `${T("game đối tác", "partner")}: <a href="${esc(o)}">${host(o)}</a>`).join(" · ");
 }
-main().catch((e) => ($("checks").textContent = `Không tải được node: ${e.message}`));
+
+for (const b of document.querySelectorAll(".lang button"))
+  b.addEventListener("click", () => {
+    lang = b.dataset.lang;
+    try {
+      localStorage.setItem("gnl-lang", lang);
+    } catch {}
+    if (data) render();
+  });
+async function main() {
+  await load();
+  render();
+}
+main().catch((e) => ($("checks").textContent = `${T("Không tải được node", "Couldn't load the node")}: ${e.message}`));
 </script>
 </body>
 </html>

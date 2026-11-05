@@ -1,5 +1,7 @@
 # Lộ trình
 
+[English](ROADMAP.en.md) · Tiếng Việt
+
 Mỗi giai đoạn có "xong khi". Chưa xong thì không sang giai đoạn sau. Ưu tiên theo thứ tự: **công bằng, minh bạch**, rồi **chi phí gần 0**.
 
 ## Giai đoạn 0: Bản nháp (đang làm)
@@ -16,18 +18,18 @@ Mỗi giai đoạn có "xong khi". Chưa xong thì không sang giai đoạn sau.
 
 ## Giai đoạn 1: Sandbox
 
-Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đồng hồ ngày giả lập), chỉ có đồ giả, chạy toàn bộ giao thức. `npm run sandbox` chạy 1 lần sạch + 5 lần gian lận.
+Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đồng hồ ngày giả lập), chỉ có đồ giả, chạy toàn bộ giao thức. `npm run sandbox` chạy 1 lần sạch, 5 lần gian lận và 2 kịch bản hợp đồng.
 
 - [x] Rate card, ticket, 5 thông điệp, hold/burn/grant, refund, log `entries.jsonl` + `checkpoint.json` (chạy local, trong bộ nhớ)
 - [x] Commit hằng ngày, audit (§8), làm nhân chứng cho nhau (nhân chứng tự bắt fork khi ký chéo)
-- [x] Hạn mức tuần (R5, chưa tự tăng), vesting 20% + thu hồi khi có fraud proof
+- [x] Hạn mức tuần (R5), vesting 20% + thu hồi khi có fraud proof
 - [x] **Auditor** (`npm run audit -- <origin>…`): đọc mọi log, kiểm R1, R2, R7 (hứa mà không cấp, fork), kiểm lại mọi fraud proof R3/R4 game khác đã ghi
 - [x] 5 kiểu gian lận cài sẵn, bắt đủ cả 5: vượt trần giờ (R2), đốt mà vẫn giữ (R4), tăng vượt pace (R3), fork log (R7), nhận cam kết mà không cấp (R7). Đã thử phá luật thì demo báo đỏ đúng chỗ
 - [x] Tìm thêm lỗ khi làm: ticket công khai không được coi là sự đồng ý cho audit (SPEC §8, §13)
 - [x] Đưa lên mạng: https://gnl-endless.web.app và https://gnl-sandbox.web.app (Firebase Functions sau Hosting, lưu Firestore, mỗi ngày tự commit, ký chéo, audit)
 - [x] Neo hằng ngày bằng OpenTimestamps (Bitcoin)
 - [x] Neo hằng ngày lên Ronin Saigon từ cloud (key là secret `GNL_SAIGON_KEY` owner đặt): tx đầu tiên từ cloud 2026-11-04, block 57264240
-- [x] Trang cho người xem ở `/` của mỗi node: rate card, nhật ký dễ đọc, link neo (Ronin, file .ots), và tự kiểm chữ ký + gốc Merkle ngay trong trình duyệt
+- [x] Trang cho người xem ở `/` của mỗi node: rate card, nhật ký dễ đọc, hợp đồng, link neo (Ronin, file .ots), và tự kiểm chữ ký + gốc Merkle ngay trong trình duyệt
 - [x] Conformance test (`npm run conform -- <origin>`): pass cả 2 sandbox. Nó bắt được một lỗ SSRF (offer từ origin lạ làm server fetch bừa), đã vá: chỉ nhận offer từ đối tác
 - [x] `AGENTS.md` + MCP server (`mcp/server.mjs`, chỉ đọc): agent của game khác tự đọc SPEC, thử sandbox, chạy conformance và audit
 - [x] Một game thật cắm vào node: Endless Run (https://endless-run.web.app). Coin mỗi lượt vào ví ở `gnl-endless`, nút "Carry them to Sandbox" ngay trên màn game over
@@ -39,21 +41,32 @@ Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đ�
 Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (code trong repo của game: `functions/gnlNode.js`, `functions/crossover.js`, thư viện này vendor vào `functions/gnl/`).
 
 - [x] Đo tốc độ thật từ lịch sử save đã verify (trung vị tăng mỗi giờ chơi), đóng băng cùng rate card
-- [x] Xuất: Coin Cash, Linh Thạch, tu vi từ trên xuống (cảnh giới tụt kéo theo thiên phú, hình thức 2, phi hành, đồ đang mặc); bản save mới phải qua `checkSnapshot`
+- [x] Xuất: Coin Cash (theo nghìn), Linh Thạch, tu vi **của tầng hiện tại** (2026-11-05: không còn tụt cảnh giới, vì tụt làm mất rồi kích hoạt lại nhiệm vụ); bản save mới phải qua `checkSnapshot`
 - [x] Nhập: CC hoặc Linh Thạch tuỳ người chơi chọn, 20% ngay, phần còn lại mở theo giờ chơi
 - [x] Trong game: Tài khoản → "Mang nỗ lực sang game khác"; trang wiki Giờ Nổ Lực
 - [x] Trần giờ 16 h/ngày (game 18+ từ v0.11.38)
 - [x] Chạy thật trên tài khoản test: Sandbox → RW, RW → Endless Run (CC), RW → Sandbox (tu vi), auditor sạch trên cả 3 game
 - [x] Lỗ tìm ra khi test: khôi phục save cũ sau khi đốt làm nhân đôi đồ. Đã vá (save vượt pace ở thứ đã rời đi bị từ chối 30 ngày sau khi chuyển), SPEC §13
-- [ ] Định giá tu vi chính xác hơn: tầng thấp đang bị làm tròn lên 1 cgnl mỗi 1% tầng (định giá cao). Đổi sang đơn vị "giờ tu vi", báo trước 30 ngày theo SPEC §4
+- [x] Hết định giá cao do làm tròn: CC tính theo nghìn (100 CC chỉ đáng 0.33 cgnl mà bị làm tròn lên 1), tầng tu vi nào 1% chưa tới 1 cgnl thì không xuất. Cả hai có lợi cho đối tác nên có hiệu lực ngay (SPEC §4)
 - [ ] Nhập tu vi (hiện chỉ nhập CC/Linh Thạch)
-- [ ] Neo Ronin cho Res World (hiện chỉ Bitcoin/OpenTimestamps)
+- [x] Neo Ronin cho Res World, gián tiếp: hai sandbox ký xác nhận checkpoint của Res World mỗi ngày, và checkpoint của chúng lên Ronin Saigon mỗi ngày. Không thêm thư viện chain vào game. Neo trực tiếp khi lên mainnet
 - [ ] MCP: tool đọc Giờ Nổ Lực trên `resworldMcp`
 - [ ] Mở beta cho mọi người chơi
 
+## Hợp đồng và bỏ phiếu (2026-11-05)
+
+- [x] Hợp đồng theo tháng giữa từng cặp game (SPEC §5.1): mỗi bên ký vào log của mình; gia hạn trong 7 ngày cuối tháng; tuần đó chưa đủ hai chữ ký cho tháng sau thì cấm chuyển; không gia hạn là hết. Đã có trong `game.mjs`, demo có kịch bản hết hạn và gia hạn, conformance kiểm cửa sổ ký
+- [x] Hạn mức tuần (R5) nhân đôi mỗi tháng gia hạn liền mạch
+- [x] Giá đổi được mỗi tuần, có hiệu lực từ thứ Hai cách ít nhất 7 ngày sau khi ghi log; đổi có lợi cho đối tác thì có hiệu lực ngay (SPEC §4). Mỗi bản rate card mới được ghi vào log
+- [x] Luật bỏ phiếu (SPEC §14): host 50, cộng đồng 50, cần 55; người chơi đủ điều kiện là đã có trong cam kết hằng ngày ≥ 30 ngày và chơi ≥ 10 giờ trong 30 ngày; phiếu ẩn danh một lần, có bằng chứng Merkle; game dưới 30 người đủ điều kiện thì host tự quyết và ghi rõ. `tally()` trong `ref/gnl.js`
+- [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
+- [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
+
 ## Giai đoạn 3: Công bố
 
-- [ ] Đẩy repo lên GitHub công khai, có issue template "tôi tìm ra cách lừa"
+- [x] Đẩy repo lên GitHub công khai (https://github.com/HaiDangVo/gnl)
+- [x] Bản tiếng Anh: `README.en.md`, `ROADMAP.en.md`, trang trạng thái hai thứ tiếng (mặc định tiếng Việt)
+- [ ] Issue template "tôi tìm ra cách lừa"
 - [ ] Bài forum: vấn đề, ý tưởng, vì sao không ai lừa được ai, sandbox để thử ngay, mời tham gia
 - [ ] Gom góp ý, ra SPEC `gnl/0.1`
 
@@ -91,4 +104,4 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 
 - Trả lời issue, nhất là issue "tìm ra cách lừa"
 - Giữ khoá ký của sandbox và khoá ví Saigon (`.secrets/`, không bao giờ commit)
-- Mỗi bản SPEC mới đều được log và có hiệu lực sau 30 ngày (§4)
+- Mỗi bản SPEC mới qua bỏ phiếu cấp giao thức (§14), rồi mới merge

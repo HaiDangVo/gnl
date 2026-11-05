@@ -1,6 +1,6 @@
 // The reference pieces' own check: `npm run check`. Fails loudly if any of them breaks.
 import assert from "node:assert/strict";
-import { arbitrage, canonical, hashOf, inclusionProof, merkleRoot, newKey, opens, paceBreaks, seal, timeBound, verifyInclusion } from "./gnl.js";
+import { arbitrage, canonical, contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, paceBreaks, seal, tally, tallyProtocol, timeBound, verifyInclusion } from "./gnl.js";
 
 // JCS: key order and whitespace never change the bytes signed
 assert.equal(canonical({ b: 1, a: [true, null, "x"], c: { z: 1.5, y: "é" } }), '{"a":[true,null,"x"],"b":1,"c":{"y":"é","z":1.5}}');
@@ -34,5 +34,22 @@ assert.equal(timeBound({ firstDay: t0, now: t0 + 3 * day, hoursPerDay: 1, export
 const pace = { gold: { burst: 100, perHour: 1000 }, level: { burst: 1, perHour: 0 } };
 assert.deepEqual(paceBreaks(pace, { gold: 0, level: 3 }, { gold: 1100, level: 4 }, 3600), []);
 assert.deepEqual(paceBreaks(pace, { gold: 0, level: 3 }, { gold: 1101, level: 5 }, 3600), ["gold", "level"]);
+
+// Contracts: December's renews in November's last 7 days; a new start may be signed inside its own month
+assert.equal(monthAdd("2026-12", 1), "2027-01");
+assert.equal(monthAdd("2027-01", -1), "2026-12");
+assert.deepEqual(contractWindow("2026-12"), { opens: "2026-11-24T00:00:00.000Z", starts: "2026-12-01T00:00:00.000Z", ends: "2027-01-01T00:00:00.000Z" });
+assert.equal(contractWindow("2027-03").opens, "2027-02-22T00:00:00.000Z", "February's last 7 days");
+
+// Decisions: 55 of 100 — the host alone (50) can't, the whole community alone (50) can't; the host and 10% of the
+// eligible players can
+assert.equal(tally({ host: "yes", yes: 0, eligible: 100 }).pass, false);
+assert.equal(tally({ host: "no", yes: 100, eligible: 100 }).pass, false);
+assert.equal(tally({ host: "yes", yes: 9, eligible: 100 }).pass, false);
+assert.equal(tally({ host: "yes", yes: 10, eligible: 100 }).pass, true);
+assert.equal(tally({ host: "yes", yes: 0, eligible: 3 }).pass, true, "a small game: its host decides, and the tally shows eligible 3");
+const games = [{ host: "yes", yes: 50, eligible: 100 }, { host: "no", yes: 100, eligible: 100 }, { host: "yes", yes: 0, eligible: 100 }];
+assert.equal(tallyProtocol(games).pass, true, "(75 + 50 + 50) / 3 ≈ 58");
+assert.equal(tallyProtocol(games.slice(1)).pass, false, "(50 + 50) / 2 = 50");
 
 console.log("ok  gio-no-luc reference");

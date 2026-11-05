@@ -13,10 +13,12 @@
  * `cheat` makes it lie on purpose, so the rules can be seen catching it:
  *   inflate — offers more than its time bound (R2)      keep — signs a burn, keeps the things (R4)
  *   nogrant — accepts, takes the burn, never grants (R7) (fork: `rewrite()`; pace: `earn(…, true)` past the pace)
+ *
+ * Crossovers need a contract in force between the two games (SPEC §5.1): each signs its side monthly (`contracts()`).
  */
 import { createHmac, randomBytes } from "node:crypto";
-import { hashOf, inclusionProof, merkleRoot, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
-import { auditFinds, leafOf, publicOf, r2, signedBy, stateHash } from "./rules.mjs";
+import { contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
+import { auditFinds, contractAt, contractMonths, leafOf, publicOf, r2, signedBy, stateHash } from "./rules.mjs";
 
 const DAY = 86_400_000;
 const rid = () => randomBytes(16).toString("base64url");
@@ -93,14 +95,13 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   const imports = config.imports ?? config.items.map((r) => ({ ...r, cgnlPer: Math.ceil(r.cgnlPer * 1.5) })); // R8: in costs more than out
   const imp = Object.fromEntries(imports.map((r) => [r.id, r.cgnlPer]));
   const policy = { lineStart: 10_000, lineCap: 1_000_000, upfront: 0.2, vestPerHour: 300, ...config.policy };
-  const card = seal(
-    {
-      type: "card", protocol: "gnl/0", iss: origin, iat: s.cardIat, game: { name: config.name, contact: config.contact, jurisdiction: "VN" },
-      keys: [s.key.jwk], hoursPerDay: config.hoursPerDay ?? { minor: 1, adult: 16 }, pace: config.pace, exports: config.items, imports, policy,
-      witnesses: config.peers ?? [],
-    },
-    key,
-  );
+  const cardBody = {
+    type: "card", protocol: "gnl/0", iss: origin, game: { name: config.name, contact: config.contact, jurisdiction: "VN" },
+    keys: [s.key.jwk], hoursPerDay: config.hoursPerDay ?? { minor: 1, adult: 16 }, pace: config.pace, exports: config.items, imports, policy,
+    witnesses: config.peers ?? [],
+  };
+  const cardHash = hashOf(cardBody);
+  let card = seal({ ...cardBody, iat: s.cardIat }, key); // A changed card is dated and logged by upkeep()
   /** What this game gives for incoming effort: its `grantId`, as many as the cgnl buy — or the game's own choice, from
    * the ticket its player asked for (`tk`: its uid and whatever the game kept with it). */
   const grantFor = config.grantFor ?? ((cgnl) => [{ id: config.grantId, qty: Math.floor(cgnl / imp[config.grantId]) }]);
@@ -151,7 +152,36 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   async function newDay() {
     clock.advance();
     s.lastDay = today();
+    upkeep();
     await commit();
+  }
+
+  /** This game's side of a contract with each of `partners` (SPEC §5.1): this month's if it has none (a new start),
+   * and next month's once the renewal window opens — unless `renew` is false (the contract then ends with the month).
+   * A standing decision of this game's (§14); the other side signs its own. */
+  function contracts(partners = config.partners ?? config.peers ?? [], { renew = config.renew ?? true } = {}) {
+    const t = at();
+    const has = (o, m) => s.log.some((e) => e.payload.type === "contract" && e.payload.aud === o && e.payload.month === m);
+    const before = s.log.length;
+    for (const o of partners) {
+      const m = t.slice(0, 7);
+      if (!has(o, m)) append({ type: "contract", id: rid(), aud: o, month: m });
+      const next = monthAdd(m, 1);
+      if (renew && t >= contractWindow(next).opens && !has(o, next)) append({ type: "contract", id: rid(), aud: o, month: next });
+    }
+    if (s.log.length > before) sign();
+  }
+
+  /** What a game keeps up on its own, each day and on any write: a changed card dated and logged (§4), its contracts. */
+  function upkeep() {
+    if (s.cardHash !== cardHash) {
+      s.cardHash = cardHash;
+      s.cardIat = at();
+      card = seal({ ...cardBody, iat: s.cardIat }, key);
+      s.log.push(card);
+      sign();
+    }
+    contracts();
   }
 
   /** Co-sign every peer's checkpoint, after checking it still extends the last one co-signed; a fork → a proof. */
@@ -209,6 +239,12 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   /** As the giving game: the player, signed in, gives these things up for a start in `to`. */
   async function cross(uid, to, items, tk) {
     if (!Array.isArray(items) || !items.length || items.some((it) => !exp[it.id] || !(it.qty > 0) || !Number.isInteger(it.qty))) throw fail(400, "BAD_ITEMS", "items");
+    if (config.partners && !config.partners.includes(to)) throw fail(403, "NOT_PARTNER", "not a partner of this game"); // Before fetching it
+    const pubTo = await publicOf(to).catch(() => {
+      throw fail(400, "UNREACHABLE", "that game's card can't be fetched");
+    });
+    const unbound = contractAt({ origin, entries: s.log }, pubTo, at());
+    if (unbound) throw fail(403, "CONTRACT", unbound);
     const st = await players.state(uid);
     if (!st) throw fail(404, "NO_PLAYER", uid);
     const held = s.players[uid]?.held ?? {};
@@ -277,6 +313,9 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (!signedBy(env, a)) throw fail(401, "R1", "signature");
     if (s.suspended.includes(o.iss)) throw fail(403, "SUSPENDED", "a fraud proof stands against this game");
     if (o.exp < at()) throw fail(400, "EXPIRED", "offer expired");
+    const me = { origin, entries: s.log };
+    const unbound = contractAt(me, a, at());
+    if (unbound) throw fail(403, "CONTRACT", unbound);
     const t = o.ticket?.payload;
     const tk = s.tickets[t?.sub];
     if (!opens(o.ticket, [s.key.jwk]) || t.iss !== origin || t.aud !== o.iss || t.exp < at() || !tk || tk.used || tk.nonce !== t.nonce)
@@ -284,7 +323,8 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const why = r2(a, env);
     if (why) throw fail(422, "R2", why);
     const week = Object.values(s.accepts).filter((x) => x.from === o.iss && x.acc.payload.iat > at(-7)).reduce((n, x) => n + x.acc.payload.cgnl, 0);
-    if (week + o.cgnl > policy.lineStart) throw fail(429, "R5", `line: ${week} of ${policy.lineStart} taken this week`); // ponytail: the line doesn't grow yet
+    const line = Math.min(policy.lineCap, policy.lineStart * 2 ** (contractMonths(me, a, at()) - 1)); // R5: doubles each month renewed
+    if (week + o.cgnl > line) throw fail(429, "R5", `line: ${week} of ${line} taken this week`);
     const grant = (await grantFor(o.cgnl, imp, tk)).filter((g) => g.qty > 0);
     if (!grant.length) throw fail(422, "TOO_LITTLE", "too little effort to give anything for");
     tk.used = true;
@@ -374,5 +414,5 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       "POST /dev/cross": (b) => cross(String(b?.uid), String(b?.to), b?.items, b?.ticket),
     });
 
-  return { card, routes, newDay, commit, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
+  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
 }

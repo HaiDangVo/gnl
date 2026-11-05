@@ -82,6 +82,7 @@ async function anchor(s) {
 async function daily(origin) {
   const { s, g, save } = await load(origin);
   const today = realClock.today();
+  g.upkeep(); // A changed card logged, contracts signed — on any write, not only a new day's
   if (s.lastDay !== today) {
     await g.newDay();
     await save(); // Its commitment is public before it asks anyone else for anything

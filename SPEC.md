@@ -51,7 +51,7 @@ Served at `GET /.well-known/gio-no-luc.json`, as an envelope signed by the game 
 - `imports`: what the game gives for incoming GNL, per unit. **No arbitrage (R8):** for every `id` in both lists, `imports.cgnlPer` MUST be ≥ `exports.cgnlPer`. Then no loop of crossovers through any number of games can return more than it left with.
 - `hoursPerDay`: the most hours a day an account can be credited with (R2). It MUST NOT exceed the play-time limits of the game's jurisdiction. Vietnam (Decree 147/2024/NĐ-CP): players under 18 at most **60 minutes per game a day** (180 across all games), so `minor` is 1. Where the law sets no limit for adults the protocol ceiling is **16**. A game that cannot tell minors from adults MUST use `minor` for everyone.
 - `pace`: the game's own growth limits **as data, never code**: for each numeric field of a player's exportable state, how much it may grow at once (`burst`) plus per hour (`perHour`). Between two states `seconds` apart, field `f` passes when `next.f − prev.f ≤ burst + perHour × seconds / 3600`. Audits (R3) apply it; nobody runs another game's code. (Res World's `GROWTH` table in `functions/validate.js` is this shape.)
-- Changes to `exports`, `imports`, `hoursPerDay` and `pace` take effect **30 days** after the card's new version is logged. Partners act on the version in force.
+- **Changes.** A game logs every new version of its card (the card envelope itself, newly dated) before serving it. Rates may change **once a week**: a version takes effect at 00:00 UTC on the first Monday at least 7 days after it was logged, and partners act on the version in force. A change wholly in partners' favor — an export removed or worth less per thing, a lower `hoursPerDay`, a tighter `pace` — and any change to `imports` that keeps R8 (imports are the game's own generosity, at no partner's risk) — MAY take effect as soon as it is logged. Changing the *method* a game prices by (not just the numbers it measures) is a decision (§14). (The v0 reference node serves a new card at once, so it may only make changes in partners' favor.)
 
 ## 5. Messages and flow
 
@@ -81,11 +81,23 @@ Served at `GET /.well-known/gio-no-luc.json`, as an envelope signed by the game 
 - Hashes are `base64url(sha256(JCS(payload)))`.
 - What B grants vests (R6): `upfront` share at once, the rest as the player plays in B.
 
+### 5.1 Contracts
+
+Two games cross over only under a **contract**: one calendar month (UTC) at a time, each game signing its own side.
+
+- A side is a `contract` entry in the signer's own log: `{type: "contract", id, iss, aud: <the other game>, month: "2026-12"}`. The contract for month M is **in force** at a time t in M when both games' sides for M are logged by t.
+- A side for M is valid only when logged from the start of the **last 7 days of the month before M** (the renewal window — for December, 24–30 November) to the end of M. Logged in the window, it **renews**; logged inside M itself, it is a **new start**.
+- **The last week.** From the moment M+1's window opens to the end of M, the two games MUST NOT cross over until both sides for M+1 are logged. A contract not renewed by the end of M ends with M; signing again later is a new start.
+- A game MUST refuse an OFFER, and MUST NOT send one, without a contract in force or in an unrenewed last week (error `CONTRACT`).
+- **Months running**: each month renewed in its window adds one; a new start is 1. Trust lines grow with it (R5).
+- Signing, renewing and ending are decisions of each game (§14). A game MAY decide once to renew every month until a later decision ends it.
+- Rates are not part of a contract: they change weekly by §4, and either side may let the contract end over them.
+
 ## 6. Logs, commitments, anchors
 
 ### 6.1 Each game's log
 
-- Every envelope a game signs (`offer`, `accept`, `burn`, `grant`, `refund`, `commit`, `card`, `key`, `revoke`, `cosign`, `proof`) is appended to **its own** log. Tickets are not logged (they carry nothing of value and expire in minutes).
+- Every envelope a game signs (`offer`, `accept`, `burn`, `grant`, `refund`, `commit`, `card`, `contract`, `proposal`, `tally`, `key`, `revoke`, `cosign`, `proof`) is appended to **its own** log. Tickets are not logged (they carry nothing of value and expire in minutes).
 - The log is a Merkle tree with RFC 9162 (Certificate Transparency 2.0) hashing over each entry's canonical JSON. v0 serves `GET /gnl/log/entries.jsonl` (one envelope a line, in order) and `GET /gnl/log/checkpoint.json` (an envelope: `{type: "checkpoint", iss, size, root, t}`), both static files. Large logs MAY switch to the C2SP `tlog-tiles` layout later.
 - A game MUST publish a checkpoint at least daily, and never two different roots for the same size.
 
@@ -108,7 +120,7 @@ A player's **first committed day** is the first `commit` that contains their pse
 | R2 | **Time bound**: an OFFER's `cgnl` + everything that pseudonym already offered (and wasn't refunded) ≤ days since its first committed day × `hoursPerDay` × 100 | public logs | reject; a logged OFFER over it is a fraud proof |
 | R3 | **Pace**: on audit (§8), the revealed states between commitments obey the card's own `pace` | audit reply + card | fraud proof |
 | R4 | **Burn shows**: on audit, the first state committed after a BURN no longer holds what was burned | audit reply | fraud proof |
-| R5 | **Trust line**: B accepts from A at most `line(A)` cgnl a week, all A's players together; net (what B took from A minus what A took from B, last 90 days) at most 4 × `line(A)`. `line` starts at B's `lineStart`, **doubles every 30 days** without a fraud proof against A, up to `lineCap` — by this formula only | B's policy + public logs | B refuses; going over it is B's own risk |
+| R5 | **Trust line**: B accepts from A at most `line(A)` cgnl a week, all A's players together; net (what B took from A minus what A took from B, last 90 days) at most 4 × `line(A)`. `line(A) = min(lineCap, lineStart × 2^(n−1))`, n the months their contract has run unbroken (§5.1) — by this formula only | B's policy + both logs | B refuses; going over it is B's own risk |
 | R6 | **Vesting**: of a grant, `upfront` at once, the rest unlocking `vestPerHour` cgnl per hour the player actually plays in B (B's own measure) | B | — |
 | R7 | **Promises kept**: an ACCEPT followed by its BURN has a GRANT in B's log before `burnBy` + 24 h; a checkpoint is never forked (two signed checkpoints, same size, different roots) | public logs | fraud proof |
 | R8 | **No arbitrage** within each card | the card | reject the card |
@@ -172,11 +184,40 @@ Each one names the attacker and what limits it. Anything still marked **open** i
 | Make a game's server fetch any address (SSRF) by naming it as an offer's `iss` | anyone | A game fetches only partners' origins, checked **before** any fetch; a stranger's offer is refused unread (found by the conformance test) |
 | Read a player's whole history by replaying the public ticket as "consent" | anyone | Audits answered only for the offer's own `aud`, signature checked (§8) — found building the sandbox |
 | Restore an old copy of a save after its things were burnt, keeping both | player | The giving game MUST refuse a save that brings back what left (Res World: past its pace in what left, within 30 days of a crossover — refused, not just flagged). If it doesn't, R4 catches **the game** on the next audit — found testing Res World |
+| Change rates overnight, catching partners mid-month | A | Once a week at most, in force a week after it's logged; only changes in partners' favor at once (§4); and partners may let the contract end |
+| Keep crossing with a game that no longer vouches for it | A or B | Monthly contracts, each side signed in its own log; refused without one, and in an unrenewed last week (§5.1) |
+| Pass its own decisions by inventing voters | host | Eligible accounts must be in the daily commitments 30 days before the vote, the count is in the signed tally, each voter can check their ballot's inclusion. **Open:** a host that plans months ahead; partners can only sample |
+| Buy or coerce votes | anyone | **Open** |
 | A stolen signing key | outsider | Bounded by the victim's lines; `revoke` entry; partners stop at that checkpoint |
 | Lie about a minor's age | player | Each game's own duty; a game that can't tell uses `minor` for everyone |
+
+## 14. Decisions
+
+Every public decision a game makes under this protocol — signing, renewing or ending a contract (§5.1), changing how it prices things (§4) or its `policy` — and every change to the protocol itself is put to a vote. **Nobody decides alone.**
+
+**Weights.** 100 in all: the game's **host** (the team that runs it) 50, its **community** (its players) 50. A decision passes with **at least 55** in favor.
+
+- Host: 50 for yes, 0 otherwise.
+- Community: 50 × (players who voted yes) / (eligible players). Abstaining counts as not yes.
+- So neither the host (50) nor the community (50) passes anything alone. The host needs at least **10% of its eligible players** to say yes, and can always block: that is what these numbers mean, and changing them is a protocol decision. (`tally()` in `ref/gnl.js`.)
+
+**Eligible players.** An account in the game's daily commitments for at least **30 days** before the vote opens, with at least **10 hours** of play in those 30 days (the game's own measure), signed in to vote. One account, one vote; a player may change their vote until the vote closes.
+
+**Steps.**
+
+1. The game logs a `proposal`: `{type, id, scope: "game" | "protocol", what (plain words, ≤ 500 chars), action, opens, closes, effective}`. A vote lasts **3 to 7 days**; `effective` is no earlier than `closes`. `action`, when there is one, says it for machines: `{contract: origin, renew: true}`, `{card: hash}`, `{spec: commit}`.
+2. Players vote in the game. Each ballot is a leaf `{v, choice}` with `v = HMAC(game secret, pseudonym ‖ proposal id)`: one-time, so ballots link neither to crossovers nor to each other. The game shows each voter their `v`, and after the close its inclusion proof.
+3. After `closes`, the game logs a `tally`: `{proposal (hash), host, eligible, yes, no, ballots (Merkle root of the leaves sorted by v), size (= yes + no), weight, pass}`. Whatever passed — a `contract` side, a new card — is logged after its tally.
+
+**Protocol decisions** (this SPEC, its default numbers, these rules): a pull request on the protocol repository, logged as a `proposal` with `scope: "protocol"` by every member game (one with a contract in force when the vote opens). Each member game's host and community weigh 50/N each, N the member games: the protocol's weight is the mean of the games' own weights (`tallyProtocol()`), passing at 55. Merged only once it passes.
+
+**Small games.** With fewer than **30** eligible players a community share means little; until a game has 30, its host decides alone and the `tally` shows it (`eligible` under 30). Its partners see that and decide for themselves.
+
+**Draft 0.** No game runs votes yet. Each host's decisions so far are its own standing decisions (the reference nodes and Res World: renew their contracts every month). Votes start with draft 1.
 
 ## Open questions for draft 1
 
 - The adult ceiling (16 h) and the default line and vesting numbers.
+- The voting numbers (§14): 55 to pass, 30 days and 10 hours to vote, 30 players before a community counts — and how partners could check a host's eligible count.
 - Whether `commit` should cover every player or only those who ever opened a crossover (privacy vs. the time bound).
 - Stage 2: the registry, lines and fraud proofs as a contract on Ronin with no admin key (ROADMAP.md).

@@ -106,3 +106,28 @@ const DAY = 86_400_000;
 /** R2: the most an account may export, from its first committed day, the card's daily ceiling and what it already sent. */
 export const timeBound = ({ firstDay, now, hoursPerDay, exported }) =>
   Math.max(0, Math.ceil((now - firstDay) / DAY) * hoursPerDay * 100 - exported); // In cgnl (hundredths of an hour)
+
+// --- Contracts and decisions (SPEC §5.1, §14) ----------------------------------------------------------------
+
+/** "2026-11" → "2026-12" (and back with -1). */
+export const monthAdd = (m, n) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)).toISOString().slice(0, 7);
+/** When a contract for month `m` may be signed: from the start of the last 7 days of the month before (the renewal
+ * window) to the end of `m` itself (a new start, not a renewal). ISO strings, end exclusive. */
+export const contractWindow = (m) => {
+  const start = Date.parse(`${m}-01T00:00:00Z`);
+  return { opens: new Date(start - 7 * DAY).toISOString(), starts: new Date(start).toISOString(), ends: `${monthAdd(m, 1)}-01T00:00:00.000Z` };
+};
+
+/** A game's decision, out of 100: its host's 50 for a yes, plus 50 × the share of its eligible players who said yes
+ * (abstaining counts as not yes). Passes at 55, so neither side decides alone. */
+export function tally({ host, yes, eligible }) {
+  const weight = (host === "yes" ? 50 : 0) + (eligible > 0 ? (50 * Math.min(yes, eligible)) / eligible : 0);
+  return { weight, pass: eligible < SMALL ? host === "yes" : weight >= 55 - 1e-9 }; // Under 30 eligible: the host's own call, shown as such
+}
+const SMALL = 30;
+/** A protocol decision: every member game's host and community weigh 50/N each, from each game's own tally. */
+export function tallyProtocol(games) {
+  const n = games.length;
+  const weight = games.reduce((w, g) => w + tally(g).weight / n, 0);
+  return { weight, pass: n > 0 && weight >= 55 - 1e-9 };
+}

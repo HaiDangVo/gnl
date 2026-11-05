@@ -158,6 +158,15 @@
             },
             {
               "$ref": "#/$defs/audit-reply"
+            },
+            {
+              "$ref": "#/$defs/contract"
+            },
+            {
+              "$ref": "#/$defs/proposal"
+            },
+            {
+              "$ref": "#/$defs/tally"
             }
           ]
         },
@@ -804,6 +813,141 @@
               }
             }
           }
+        }
+      }
+    },
+    "month": {
+      "type": "string",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+      "description": "A calendar month, UTC"
+    },
+    "contract": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "aud",
+        "month"
+      ],
+      "description": "SPEC §5.1: one game's side of a month's contract with `aud`; in force when both sides are logged, each within the month's window",
+      "properties": {
+        "type": {
+          "const": "contract"
+        },
+        "aud": {
+          "$ref": "#/$defs/origin"
+        },
+        "month": {
+          "$ref": "#/$defs/month"
+        }
+      }
+    },
+    "proposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "scope",
+        "what",
+        "opens",
+        "closes",
+        "effective"
+      ],
+      "description": "SPEC §14: a decision put to the vote",
+      "properties": {
+        "type": {
+          "const": "proposal"
+        },
+        "scope": {
+          "enum": [
+            "game",
+            "protocol"
+          ]
+        },
+        "what": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "action": {
+          "type": "object",
+          "description": "Machine-readable, when there is one: {contract: origin, renew: bool}, {card: hash}, {spec: commit}"
+        },
+        "opens": {
+          "$ref": "#/$defs/time"
+        },
+        "closes": {
+          "$ref": "#/$defs/time"
+        },
+        "effective": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "tally": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "proposal",
+        "host",
+        "eligible",
+        "yes",
+        "no",
+        "ballots",
+        "size",
+        "weight",
+        "pass"
+      ],
+      "description": "SPEC §14: a game's count once its vote closed",
+      "properties": {
+        "type": {
+          "const": "tally"
+        },
+        "proposal": {
+          "$ref": "#/$defs/hash"
+        },
+        "host": {
+          "enum": [
+            "yes",
+            "no"
+          ]
+        },
+        "eligible": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "yes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "no": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ballots": {
+          "type": "string",
+          "description": "Merkle root over {v, choice} leaves sorted by v; v = HMAC(game secret, pseudonym ‖ proposal id)"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "weight": {
+          "type": "number"
+        },
+        "pass": {
+          "type": "boolean"
         }
       }
     }
