@@ -136,3 +136,31 @@ export function contractMonths(a, b, t) {
     if (x.payload.iat >= starts || y.payload.iat >= starts) return n; // Signed inside its month: a new start
   }
 }
+
+/** A council member's consent (§14): `{type: "consent", iss: <game>, member: <account>}`, signed by the key listed for
+ * them — so nobody is seated, or given a key, without knowing. */
+export const consentOk = (origin, member, consent) =>
+  consent?.payload?.type === "consent" && consent.payload.iss === origin && consent.payload.member === member.account && opens(consent, [{ kty: "OKP", crv: "Ed25519", x: member.x, kid: member.kid }]);
+
+/** The council a log shows at `t` (default: now): members seated and not gone, the master. With `forVote`, a vote's
+ * council as it opens at `t`: joins count from 7 days after, those gone within the 7 days before still hold a seat. */
+export function roster(entries, t = "9999", forVote = false) {
+  const week = (iso, n) => new Date(Date.parse(iso) + n * 7 * DAY).toISOString();
+  const seats = new Map();
+  let master = null;
+  for (const e of entries) {
+    const p = e.payload;
+    if (p.type !== "council" || p.iat > t) continue;
+    if (p.op === "join" && (!forVote || week(p.iat, 1) <= t)) seats.set(p.member.account, { ...p.member, since: p.iat });
+    if (p.op === "join" && p.master) master = p.member.account;
+    if (p.op === "master" && (!forVote || week(p.iat, 1) <= t)) master = p.member.account;
+    if (p.op === "leave" && (!forVote || week(p.iat, 1) <= t)) seats.delete(p.member.account);
+  }
+  return { members: [...seats.values()].map(({ since: _, ...m }) => m), master };
+}
+
+/** §4.1, the least a game says about its effort: each thing it prices, both ways, and that the prices are declared. */
+export const effortOf = (c) => ({
+  protocol: c.protocol, game: c.iss, at: c.iat,
+  things: c.exports.map((r) => ({ id: r.id, name: r.name, unit: r.unit, out: r.cgnlPer, in: c.imports.find((i) => i.id === r.id)?.cgnlPer ?? null, basis: "declared", how: "" })),
+});

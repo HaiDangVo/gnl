@@ -66,6 +66,12 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] R10: one source per receiving account (per partner game), a receiving bound by days present (demo `sources`)
 - [x] Voids and penalties (SPEC §8.1): the giving game voids a crossover on its own evidence; both the sending and the receiving account owe 100% of its hours, paid before anything else (demo `void`)
 - [x] `JOINING.md` / `JOINING.en.md`, issue templates "Join" and "I found a way to cheat"
+- [x] The master (SPEC §14): one per game, normally one seat, deciding close results (50–60) but never past the community's 10%; every council or master change counts in votes only after 7 days. Res World: its owner is master, key and consent made on their machine with `npm run council`
+- [x] R10 loosened: one source at a time, unlink and wait 7 days (demo `sources`)
+- [x] The standard effort sheet `/gnl/effort.json` (SPEC §4.1), shown on the status page; Res World's page at https://resworld.web.app/gnl/
+- [x] The minimum partner age is each game's own (`policy.partnerMinDays`): Res World 7, rising toward 30
+- [x] `examples/your-game.mjs`; a bot runs conformance + audit under every join issue
+- [x] Res World: incoming cultivation priced at sitting's pace when that's slower than measured (it was ~15× too cheap); the Sandbox for test accounts only; the sheet in three tabs
 - [ ] Res World: voting in game, `proposal` / `tally` in its log (backlog #368)
 - [ ] Protocol votes: each member game logs a `proposal` for a SPEC pull request, combined with `tallyProtocol()`
 

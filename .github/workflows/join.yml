@@ -1,0 +1,34 @@
+# A "Join" issue (JOINING.md): run the conformance test and the auditor against the origin it names, and post both
+# under the issue — the facts a game weighs before signing, there for everyone to read.
+name: Join request
+on:
+  issues:
+    types: [opened, edited]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  check:
+    if: startsWith(github.event.issue.title, '[join]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - id: origin
+        env:
+          BODY: ${{ github.event.issue.body }}
+        run: echo "origin=$(printf '%s' "$BODY" | grep -oE 'https://[A-Za-z0-9.-]+' | head -1)" >> "$GITHUB_OUTPUT"
+      - env:
+          ORIGIN: ${{ steps.origin.outputs.origin }}
+        run: |
+          {
+            echo "Checked automatically: \`$ORIGIN\`"
+            echo; echo '### Conformance'; echo '```'; (npm run -s conform -- "$ORIGIN" 2>&1 || true) | tail -60; echo '```'
+            echo; echo '### Audit and flows'; echo '```'; (npm run -s audit -- "$ORIGIN" 2>&1 || true) | tail -30; echo '```'
+          } > report.md
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body-file report.md

@@ -12,10 +12,11 @@ Cho người làm game (và AI agent của họ) muốn game mình nối vào Gi
    - `players`: đọc thứ mang đi được của một tài khoản, đốt, cấp, thu hồi.
    - `days`: lưu cam kết mỗi ngày (bảng bất kỳ).
    - cấu hình: tên, thứ xuất/nhập và giá, `pace`.
-   Hai ví dụ chạy thật: `cloud/index.mjs` (sandbox trên Firebase) và Res World `functions/gnlNode.js` (game thật, Firestore).
+   Ví dụ: `examples/your-game.mjs` (ít code nhất, chạy được ngay, thay Map bằng database của bạn), `cloud/index.mjs` (hai sandbox trên Firebase), Res World `functions/gnlNode.js` (game thật, Firestore).
+   Bảng công sức `/gnl/effort.json` (SPEC §4.1): mỗi thứ cày thế nào, giá dựa vào đâu (đo, thiết kế, tự khai hay ước đoán).
 4. **Giá đo từ người chơi thật**: trung vị lượng tăng mỗi giờ chơi, công bố cách đo. Không đoán.
 5. **Một trang trong game** để người chơi tự chọn mang đi và tự bấm xác nhận, đã đăng nhập. AI không được chuyển hộ (SPEC §10).
-6. **Người chịu trách nhiệm**: một người liên hệ, hoặc danh sách hội đồng công khai nếu nhiều người vận hành (SPEC §14).
+6. **Người chịu trách nhiệm**: một master (chủ game) và hội đồng vận hành công khai; mỗi người tự tạo khoá và ký đồng ý trên máy mình bằng `npm run council` (SPEC §14).
 
 ## Các bước và thời gian
 
@@ -23,8 +24,8 @@ Cho người làm game (và AI agent của họ) muốn game mình nối vào Gi
 |---|---|---|
 | 1 | Chạy local: `npm install && npm run sandbox` để xem toàn bộ luật chạy, rồi gắn node vào game của bạn | 1–2 ngày cho một AI agent, nếu game đã có server và database |
 | 2 | Đưa lên mạng; `npm run conform -- https://game-cua-ban` đến khi không còn FAIL | trong ngày |
-| 3 | Mở issue **"Xin gia nhập"** trên GitHub (mẫu có sẵn). Muốn thử chuyển thật với hai sandbox thì ghi vào đó: sandbox thêm bạn vào danh sách đối tác và ký hợp đồng trong ngày | 1 ngày |
-| 4 | Chạy đủ **30 ngày** có cam kết mỗi ngày (đã neo thời gian). Đây là điều kiện trước khi một game thật ký (SPEC §5.1) | 30 ngày |
+| 3 | Mở issue **"Xin gia nhập"** trên GitHub (mẫu có sẵn). Một bot tự chạy conformance và audit vào origin của bạn rồi đăng kết quả ngay dưới issue. Muốn thử chuyển thật với hai sandbox thì ghi vào đó: sandbox thêm bạn vào danh sách đối tác và ký hợp đồng trong ngày | 1 ngày |
+| 4 | Chạy đủ số ngày có cam kết liên tục mà game kia yêu cầu (`policy.partnerMinDays` trong rate card của họ). Res World hiện cần **7 ngày**, sẽ tăng dần tới 30 khi mạng lưới lớn lên (SPEC §5.1) | 7 ngày |
 | 5 | Game thật xem xét: tuổi log, rate card, dòng chảy (`npm run audit`), người chịu trách nhiệm, rồi bỏ phiếu (SPEC §14) | vài ngày |
 | 6 | Hai bên ghi `contract` của tháng vào log của mình. **Có hiệu lực ngay khi đủ hai chữ ký**, hết tháng thì gia hạn trong 7 ngày cuối | ngay |
 
@@ -34,7 +35,8 @@ Tháng đầu, mỗi game chỉ nhận của bạn tối đa 100 giờ nỗ lự
 
 Ghi trong issue "Xin gia nhập":
 
-- origin, tên game, người liên hệ (hoặc hội đồng: tên, tài khoản trong game, link hồ sơ công khai);
+- origin, tên game, master và hội đồng (tên, tài khoản trong game, link hồ sơ công khai);
+- bảng công sức `/gnl/effort.json`;
 - kết quả `npm run conform` và `npm run audit` (cả phần dòng chảy);
 - cách bạn đo giá, và số liệu đã đo;
 - quốc gia, độ tuổi người chơi, trần giờ mỗi ngày theo luật nơi bạn chạy;
@@ -48,5 +50,5 @@ Hiện Res World chưa có màn bỏ phiếu trong game, và cộng đồng chư
 |---|---|
 | Người đọc | Repo https://github.com/HaiDangVo/gnl: `README.md`, `SPEC.md` (giao thức), `ROADMAP.md`, file này. Có bản tiếng Anh |
 | AI agent | `AGENTS.md` (hướng dẫn từng bước, luật khi sửa repo) và MCP server `mcp/server.mjs`: `gnl_spec`, `gnl_sandboxes`, `gnl_card`, `gnl_conform`, `gnl_audit`, `gnl_flows`, `gnl_verify`. Gắn: `claude mcp add gnl -- node /path/to/gnl/mcp/server.mjs` |
-| Ai cũng xem | Trang trạng thái tự kiểm trong trình duyệt: https://gnl-sandbox.web.app, https://gnl-endless.web.app (bảng quy đổi, hợp đồng, nhật ký, neo). Rate card của Res World: https://resworld.web.app/.well-known/gio-no-luc.json |
-| Hỏi, xin gia nhập, báo lỗ | GitHub Issues của repo, có mẫu cho từng việc |
+| Ai cũng xem | Trang trạng thái tự kiểm trong trình duyệt: https://gnl-sandbox.web.app, https://gnl-endless.web.app, https://resworld.web.app/gnl/ (bảng quy đổi, bảng công sức, hội đồng, hợp đồng, nhật ký, neo) |
+| Hỏi, xin gia nhập, báo lỗ | GitHub Issues của repo, có mẫu cho từng việc. Chủ repo được GitHub báo (email, app) mỗi khi có issue mới |

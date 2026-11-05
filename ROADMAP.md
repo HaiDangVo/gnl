@@ -66,6 +66,12 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] R10: một nguồn cho mỗi tài khoản nhận (mỗi game đối tác), trần nhận theo số ngày có mặt (demo `sources`)
 - [x] Huỷ và phạt (SPEC §8.1): game gửi huỷ lần chuyển khi có bằng chứng; cả tài khoản gửi và nhận nợ 100% số giờ, trả nợ trước mọi thứ (demo `void`)
 - [x] `JOINING.md` / `JOINING.en.md`, mẫu issue "Xin gia nhập" và "Tôi tìm ra cách lừa"
+- [x] Master (SPEC §14): một người mỗi game, bình thường một ghế, quyết khi kết quả sát nút (50–60) nhưng không vượt được mức 10% cộng đồng; mọi thay đổi hội đồng/master chờ 7 ngày mới tính phiếu. Res World: master là chủ game, khoá và chữ ký đồng ý tạo trên máy bằng `npm run council`
+- [x] R10 nới: một nguồn cùng lúc, huỷ liên kết rồi chờ 7 ngày (demo `sources`)
+- [x] Bảng công sức chuẩn `/gnl/effort.json` (SPEC §4.1), trang trạng thái hiện nó; Res World có trang ở https://resworld.web.app/gnl/
+- [x] Số ngày đối tác tối thiểu là tham số của từng game (`policy.partnerMinDays`): Res World 7, tăng dần tới 30
+- [x] `examples/your-game.mjs`; bot tự chạy conformance + audit dưới mỗi issue xin gia nhập
+- [x] Res World: giá nhập tu vi theo tốc độ ngồi thiền nếu chậm hơn số đo (trước đó rẻ gấp ~15 lần); Sandbox chỉ cho tài khoản test; UI chia 3 tab
 - [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
 - [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
 

@@ -378,6 +378,16 @@
               }
             }
           }
+        },
+        "effort": {
+          "type": "string",
+          "format": "uri",
+          "description": "SPEC §4.1: the game's effort sheet, /gnl/effort.json"
+        },
+        "master": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "SPEC §14: the council member who is the game's master"
         }
       }
     },
@@ -1182,7 +1192,8 @@
         "op": {
           "enum": [
             "join",
-            "leave"
+            "leave",
+            "master"
           ]
         },
         "member": {
@@ -1191,6 +1202,15 @@
         "consent": {
           "type": "object",
           "description": "join: the newcomer's own signed consent"
+        },
+        "master": {
+          "type": "boolean"
+        },
+        "by": {
+          "enum": [
+            "master",
+            "self"
+          ]
         }
       }
     }

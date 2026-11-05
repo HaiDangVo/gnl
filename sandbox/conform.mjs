@@ -7,7 +7,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { arbitrage, contractWindow, hashOf, merkleRoot, newKey, seal } from "../ref/gnl.js";
-import { publicOf, r2, signedBy } from "./rules.mjs";
+import { consentOk, publicOf, r2, roster, signedBy } from "./rules.mjs";
 
 export async function conform(origin) {
   const out = [];
@@ -41,6 +41,13 @@ export async function conform(origin) {
   const contracts = pub.entries.filter((e) => e.payload.type === "contract");
   const outside = contracts.filter((e) => !/^\d{4}-\d{2}$/.test(e.payload.month) || !(e.payload.iat >= contractWindow(e.payload.month).opens && e.payload.iat < contractWindow(e.payload.month).ends) || !/^https:\/\//.test(e.payload.aud));
   check("contracts: each signed for a month, within its window (§5.1)", !outside.length, `${outside.length} not`);
+  const joins = pub.entries.filter((e) => e.payload.type === "council" && e.payload.op === "join");
+  const forged = joins.filter((e) => !consentOk(origin, e.payload.member, e.payload.consent));
+  check("council: every member seated with their own signed consent (§14)", !forged.length, forged.map((e) => e.payload.member.account).join(", "));
+  const r = roster(pub.entries);
+  check("council: the card's council is the log's, with one master among them", JSON.stringify(c.council ?? []) === JSON.stringify(r.members) && (!r.members.length || r.members.some((m) => m.account === c.master)), "card ≠ log");
+  const effort = await fetch(`${origin}/gnl/effort.json`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+  check("effort sheet: /gnl/effort.json, a thing for each export at the card's prices (§4.1)", effort && c.exports.every((x) => effort.things?.some((t) => t.id === x.id && t.out === x.cgnlPer)), "missing or off the card");
   const bad = pub.entries.filter((e) => e.payload.type === "offer").map((e) => r2(pub, e)).filter(Boolean);
   check("R2: every logged offer within its time bound", !bad.length, bad[0]);
 

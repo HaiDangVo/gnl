@@ -53,6 +53,27 @@ Served at `GET /.well-known/gio-no-luc.json`, as an envelope signed by the game 
 - `pace`: the game's own growth limits **as data, never code**: for each numeric field of a player's exportable state, how much it may grow at once (`burst`) plus per hour (`perHour`). Between two states `seconds` apart, field `f` passes when `next.f − prev.f ≤ burst + perHour × seconds / 3600`. Audits (R3) apply it; nobody runs another game's code. (Res World's `GROWTH` table in `functions/validate.js` is this shape.)
 - **Changes.** A game logs every new version of its card (the card envelope itself, newly dated) before serving it. Rates may change **once a week**: a version takes effect at 00:00 UTC on the first Monday at least 7 days after it was logged, and partners act on the version in force. A change wholly in partners' favor — an export removed or worth less per thing, a lower `hoursPerDay`, a tighter `pace` — and any change to `imports` that keeps R8 (imports are the game's own generosity, at no partner's risk) — MAY take effect as soon as it is logged. Changing the *method* a game prices by (not just the numbers it measures) is a decision (§14). (The v0 reference node serves a new card at once, so it may only make changes in partners' favor.)
 
+### 4.1 The effort sheet
+
+Every game publishes **how its things are earned and what its prices stand on**, at `GET /gnl/effort.json` (the card names it in `effort`), in one shape, so people and agents read any game the same way. Each game shows it however it likes (its wiki, the node's page at `/gnl/`); the data is the standard:
+
+```json
+{
+  "protocol": "gnl/0", "game": "https://game.example", "at": "<when measured>",
+  "page": "<a page for people, optional>",
+  "method": "<how the pace was measured, in plain words>",
+  "things": [
+    { "id": "gold", "name": "Gold", "unit": "coin", "out": 2, "in": 3,
+      "basis": "measured | design | declared | guess", "samples": 412,
+      "how": { "vi": "<how a player earns it>", "en": "…" } }
+  ]
+}
+```
+
+- One entry for every `exports` and `imports` id, with the card's own prices (`out`, `in`; `null` where it doesn't go that way).
+- `basis`: **measured** (from players' verified history, with `samples`), **design** (the game's own designed pace, e.g. a layer in 20 hours of sitting), **declared** (the game's word), **guess** (waiting for data). A partner weighs a contract on it: `guess` and `declared` deserve a smaller line.
+- `how` is plain words, in one or more languages.
+
 ## 5. Messages and flow
 
 ```
@@ -93,7 +114,8 @@ Two games cross over only under a **contract**: one calendar month (UTC) at a ti
 - Signing, renewing and ending are decisions of each game (§14). A game MAY decide once to renew every month until a later decision ends it.
 - Rates are not part of a contract: they change weekly by §4, and either side may let the contract end over them.
 - **Before a new start**, a game SHOULD check the candidate from its public face alone — the facts a vote (§14) is asked to weigh:
-  - its log is at least **30 days** old, with a `commit` every day (anchored), and a plausible number of players in them;
+  - its log is at least `policy.partnerMinDays` days old (the receiving game's own number, in its card: 7 while the network is young, rising toward **30** as it grows), with a `commit` every day (anchored), and a plausible number of players in them;
+  - its effort sheet (§4.1): what its prices stand on;
   - its card: prices from a published measuring method, a `pace` in line with games of its kind, `hoursPerDay` within the law;
   - its flows (`npm run audit`, the auditor's flow report; MCP `gnl_flows`): who it already trades with, how much, which way (§13.1);
   - a person to answer for it (`game.contact`), and for a council, its members (§14).
@@ -131,7 +153,7 @@ A player's **first committed day** is the first `commit` that contains their pse
 | R7 | **Promises kept**: an ACCEPT followed by its BURN has a GRANT in B's log before `burnBy` + 24 h; a checkpoint is never forked (two signed checkpoints, same size, different roots) | public logs | fraud proof |
 | R8 | **No arbitrage** within each card | the card | reject the card |
 | R9 | **No pass-through**: what a player received through this protocol never leaves again. A game MUST refuse an OFFER for more than the player's exportable state is worth minus everything that player ever received (in cgnl, as accepted). Only effort spent in the game itself leaves it, so a trusted game can't relay another game's effort onward | the giving game itself | refuse |
-| R10 | **One source, and a receiving bound**: a receiving account takes from **one** account of each partner game, and that account gives to it alone (B binds them at the first ACCEPT); and it takes at most `hoursPerDay` for each day since its own first commitment in B. Ten accounts elsewhere can't feed one here, nor one there feed ten here, nor a fresh account here take 500 hours | B's own records | refuse |
+| R10 | **One source at a time, and a receiving bound**: a receiving account takes from **one** account of each partner game at a time, and that account gives to it alone (B binds them at the first ACCEPT). To change, the player undoes the link, and no new link forms on either side for **7 days** (a week: the line's own rhythm); relinking the same pair is free. And it takes at most `hoursPerDay` for each day since its own first commitment in B. Ten accounts elsewhere can't feed one here, nor hop to the next when one is blocked, nor a fresh account here take 500 hours | B's own records | refuse |
 
 **A fraud proof** is a `proof` entry: `{against: origin, rule, evidence: [envelopes…]}` that any program can check with no judgement. Anyone MAY publish one (in their log, or just post it). On a valid proof every game MUST, as soon as it sees it: set the line for that origin to zero, stop accepting its envelopes, and claw back what has not yet vested from grants that came from it. Lines restart at `lineStart` only by the partner's own decision, logged.
 
@@ -213,6 +235,7 @@ Each one names the attacker and what limits it. Anything still marked **open** i
 | Feed one account here from ten accounts there, or swap to a fresh one when one is blocked | player | R10: one source per partner game, bound both ways at the first accept; the receiving bound; a void makes the receiver owe too (§8.1) |
 | Make a stranger owe by sending them cheated effort | player | Nothing arrives without the receiver's own ticket; R10 binds one source (§8.1) |
 | Seat friends or dismiss dissenters right before a vote | host | The council is frozen when a vote opens; joins count after 7 days, leavers keep a no seat for 7 (§14) |
+| The master overrules everyone | master | One seat like any member; the casting vote only in a close result and never past a community under 10%; every seat, removal and change of master logged and counting only after 7 days (§14). The master runs the game's key, so it can do whatever the game can — in public |
 | Forge or hide a council member's vote | host | Members sign with their own keys, the ballots are logged publicly (§14) |
 | Pass its own decisions by inventing voters | host | Eligible accounts must be in the daily commitments 30 days before the vote, the count is in the signed tally, each voter can check their ballot's inclusion. **Open:** a host that plans months ahead; partners can only sample |
 | Buy or coerce votes | anyone | **Open** |
@@ -250,12 +273,15 @@ Decisions that **widen** a game's exposure to others go to a vote: a new contrac
 
   Changing these numbers is a protocol decision. (`tally()` in `ref/gnl.js`.)
 
-**The council.** The host is the people who run the game: a council, not elected — they join when they start running it and leave when they stop, by the host's own decision. What the protocol asks is that it be **public**, and that changing it can't swing a vote:
+**The council.** The host is the people who run the game: a council, not elected — they join when they start running it and leave when they stop. One of them is the game's **master** (its owner). The protocol recognises only a council that is **public and checkable**, and arranges that changing it can't swing a vote:
 
 - The roster is in the card: `council: [{name, account, profile, kid, x}]` — a name, the member's **own account in the game** (as the game shows it publicly), a public profile link (so a person stands behind each seat), and the member's own Ed25519 key.
 - Every change is logged: `council` `{type: "council", op: "join" | "leave", member}`, signed by the game. A join carries the newcomer's own signed `{type: "consent", iss: <the game>, member: <account>}`, made with the key listed for them: nobody is seated, or given a key, without knowing. A leave needs no one's consent (someone who stopped working there is out at once).
 - **A vote's council is frozen when the vote opens.** A member counts for votes opening at least **7 days** after their join; a member who left within the **7 days before** a vote opened still holds a seat in it, voting no. Seating friends or dismissing dissenters can't change a vote that week.
 - Each member votes by signing a `ballot` `{type: "ballot", iss: <the game>, member: <account>, proposal: <hash>, choice: "yes" | "no"}` with their own key; the game logs it wrapped in a `council-vote` entry it signs, like a `cosign` (§6.3). Ballots are **public**, so the game can neither forge nor hide one. Members' accounts don't vote again as players.
+- **The master** is named in the card (`master`), one per game, holding **one seat like any member**. Only the master seats or removes members (a member may also leave on their own, with a signed `resign`); the master passes the role on by naming a new master, who must already hold a seat. Every such act is logged, signed by the game, and slowed by the week above: no seat, removal or new master counts in a vote that opens within 7 days of it.
+- **The master's casting vote**: when a game's result is **close** — a weight from 50 to under 60 (for a small game, its council's share from 50% to under 60%) — the master's own ballot decides it, either way. Never past a community under 10% yes: a master and a council alone still can't pass anything. A clear result (under 50, or 60 and over) is the vote's, and the master is one seat.
+- The master also takes the narrowing decisions alone, at once (ending, not renewing, lowering, voiding a crossover on evidence, §8.1): those only ever reduce risk.
 - What no rule can stop: the host filling seats with people of its own mind. That only moves votes **within** the host's 50 — it never reaches the community's 50, which stays the guard: even a unanimous council needs 10% of the eligible players.
 
 **Eligible players.** An account in the game's daily commitments for at least **30 days** before the vote opens, with at least **10 hours** of play in those 30 days (the game's own measure), signed in to vote. One account, one vote; a player may change their vote until the vote closes.

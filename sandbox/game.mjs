@@ -19,9 +19,10 @@
  */
 import { createHmac, randomBytes } from "node:crypto";
 import { contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
-import { auditFinds, contractAt, contractMonths, leafOf, publicOf, r2, signedBy, stateHash } from "./rules.mjs";
+import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, publicOf, r2, roster, signedBy, stateHash } from "./rules.mjs";
 
 const DAY = 86_400_000;
+const UNLINK_DAYS = 7; // R10: a week between undoing a source and any new one — the weekly line's own rhythm
 const rid = () => randomBytes(16).toString("base64url");
 export const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
 
@@ -95,19 +96,25 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   s.uids ??= {};
   s.debts ??= {};
   s.voided ??= {};
+  // R10's links, "partner|uid" → {player, at, off}: from the accepts, for a state from before they were kept
+  s.links ??= Object.fromEntries(Object.values(s.accepts).map((x) => [`${x.from}|${x.uid}`, { player: x.offer.payload.player, at: x.acc.payload.iat }]));
   const key = { kid: s.key.kid, privateKey: privateFromJwk(s.key.private) };
   const { today, at } = clock;
   const exp = Object.fromEntries(config.items.map((r) => [r.id, r.cgnlPer]));
   const imports = config.imports ?? config.items.map((r) => ({ ...r, cgnlPer: Math.ceil(r.cgnlPer * 1.5) })); // R8: in costs more than out
   const imp = Object.fromEntries(imports.map((r) => [r.id, r.cgnlPer]));
   const policy = { lineStart: 10_000, lineCap: 1_000_000, upfront: 0.2, vestPerHour: 300, ...config.policy };
-  const cardBody = {
-    type: "card", protocol: "gnl/0", iss: origin, game: { name: config.name, contact: config.contact, jurisdiction: "VN" },
-    keys: [s.key.jwk], hoursPerDay: config.hoursPerDay ?? { minor: 1, adult: 16 }, pace: config.pace, exports: config.items, imports, policy,
-    witnesses: config.peers ?? [],
+  /** The card's content: the config, and the council as the log has it (§14). */
+  const cardBody = () => {
+    const c = roster(s.log);
+    return {
+      type: "card", protocol: "gnl/0", iss: origin, game: { name: config.name, contact: config.contact, jurisdiction: "VN" },
+      keys: [s.key.jwk], hoursPerDay: config.hoursPerDay ?? { minor: 1, adult: 16 }, pace: config.pace, exports: config.items, imports, policy,
+      witnesses: config.peers ?? [], effort: `${origin}/gnl/effort.json`,
+      ...(c.members.length ? { council: c.members, master: c.master } : {}),
+    };
   };
-  const cardHash = hashOf(cardBody);
-  let card = seal({ ...cardBody, iat: s.cardIat }, key); // A changed card is dated and logged by upkeep()
+  let card = seal({ ...cardBody(), iat: s.cardIat }, key); // A changed card is dated and logged by upkeep()
   /** What this game gives for incoming effort: its `grantId`, as many as the cgnl buy — or the game's own choice, from
    * the ticket its player asked for (`tk`: its uid and whatever the game kept with it). */
   const grantFor = config.grantFor ?? ((cgnl) => [{ id: config.grantId, qty: Math.floor(cgnl / imp[config.grantId]) }]);
@@ -178,15 +185,34 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (s.log.length > before) sign();
   }
 
-  /** What a game keeps up on its own, each day and on any write: a changed card dated and logged (§4), its contracts. */
-  function upkeep() {
-    if (s.cardHash !== cardHash) {
-      s.cardHash = cardHash;
-      s.cardIat = at();
-      card = seal({ ...cardBody, iat: s.cardIat }, key);
-      s.log.push(card);
-      sign();
+  /** The council as configured (§14): `config.council` lists each member with the consent they signed with their own
+   * key; one is `master`. Whoever is new is seated (their consent checked, logged); whoever is gone, logged leaving. */
+  function councilUp() {
+    const want = config.council ?? [];
+    const now = roster(s.log);
+    for (const { member, consent, master } of want) {
+      if (now.members.some((m) => m.account === member.account)) continue;
+      if (!consentOk(origin, member, consent)) throw new Error(`council: ${member.account}'s consent doesn't open with their key`);
+      append({ type: "council", op: "join", member, consent, ...(master ? { master: true } : {}) });
     }
+    for (const m of now.members) if (!want.some((w) => w.member.account === m.account)) append({ type: "council", op: "leave", member: { account: m.account }, by: "master" });
+    const master = want.find((w) => w.master)?.member.account;
+    if (master && roster(s.log).master !== master) append({ type: "council", op: "master", member: { account: master } });
+  }
+
+  /** What a game keeps up on its own, each day and on any write: its council, a changed card dated and logged (§4),
+   * its contracts. */
+  function upkeep() {
+    const size = s.log.length;
+    councilUp();
+    const body = cardBody();
+    if (s.cardHash !== hashOf(body)) {
+      s.cardHash = hashOf(body);
+      s.cardIat = at();
+      card = seal({ ...body, iat: s.cardIat }, key);
+      s.log.push(card);
+    }
+    if (s.log.length !== size) sign();
     contracts();
   }
 
@@ -344,9 +370,15 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       throw fail(400, "TICKET", "no valid ticket from this game");
     const why = r2(a, env);
     if (why) throw fail(422, "R2", why);
-    // R10, one source: an account here takes from one account of each partner game, and that account gives to it alone
-    const bound = Object.values(s.accepts).find((x) => x.from === o.iss && (x.uid === tk.uid) !== (x.offer.payload.player === o.player));
-    if (bound) throw fail(403, "SOURCE", bound.uid === tk.uid ? "this account already takes from another account of that game" : "that account already gives to another account here");
+    // R10, one source at a time: an account here takes from one account of each partner game, which gives to it alone;
+    // another needs the link undone first, and a week (UNLINK_DAYS) after undoing it before any new link, either side
+    const key = `${o.iss}|${tk.uid}`;
+    const link = s.links[key];
+    const fresh = (l) => l.off && at() < new Date(Date.parse(l.off) + UNLINK_DAYS * DAY).toISOString();
+    if (link && !link.off && link.player !== o.player) throw fail(403, "SOURCE", "this account takes from another account of that game: undo that link first");
+    for (const [k, l] of Object.entries(s.links))
+      if (k.startsWith(`${o.iss}|`) && k !== key && l.player === o.player && (!l.off || fresh(l))) throw fail(403, "SOURCE", l.off ? `that account left another account here on ${l.off.slice(0, 10)}: a new link waits ${UNLINK_DAYS} days` : "that account gives to another account here");
+    if (link?.off && link.player !== o.player && fresh(link)) throw fail(403, "SOURCE", `this account undid its link on ${link.off.slice(0, 10)}: a new source waits ${UNLINK_DAYS} days`);
     // R10, the receiving side's time bound: at most hoursPerDay for each day the account has been here
     const joined = s.first[pseudonym(tk.uid)] ?? today();
     const taken = Object.values(s.accepts).filter((x) => x.uid === tk.uid).reduce((n, x) => n + x.acc.payload.cgnl, 0);
@@ -366,6 +398,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     tk.used = true;
     const acc = append({ type: "accept", id: o.id, aud: o.iss, offer: hashOf(o), cgnl: o.cgnl, grant, upfront: policy.upfront, burnBy: at(1) });
     s.accepts[hashOf(acc.payload)] = { acc, uid: tk.uid, from: o.iss, offer: env };
+    if (!link || link.off || link.player !== o.player) s.links[key] = { player: o.player, at: at() };
     sign();
     return acc;
   }
@@ -408,6 +441,15 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     }
     return seal({ type: "audit-reply", iss: origin, iat: at(), aud: req.iss, offer: req.offer, days: out }, key);
   }
+
+  /** R10: the player here undoes their link to a partner's account. A new source, either side, waits UNLINK_DAYS. */
+  function unlink(uid, from) {
+    const l = s.links[`${from}|${uid}`];
+    if (!l || l.off) throw fail(404, "NO_LINK", "no link to undo");
+    l.off = at();
+    return { from, off: l.off, newSourceFrom: at(UNLINK_DAYS) };
+  }
+  const sources = (uid) => Object.fromEntries(Object.entries(s.links).filter(([k]) => k.endsWith(`|${uid}`)).map(([k, l]) => [k.slice(0, k.lastIndexOf("|")), { since: l.at, off: l.off ?? null }]));
 
   /** §8.1, as the giving game: one of its crossovers was cheated by its own player, on evidence it holds. It says so,
    * signed (VOID, to the receiver too); the sender owes what it carried, in cgnl, paid before anything else. */
@@ -475,7 +517,9 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     "POST /gnl/burn": onBurn,
     "POST /gnl/audit": onAudit,
     "POST /gnl/void": onVoid,
-    "POST /dev/tick": () => ({ day: s.lastDay }), // Online: any write first does the new day's work; this is the write that does only that
+    "POST /dev/tick": () => ({ day: s.lastDay }),
+    // §4.1: how each thing is earned and what the prices stand on — for people and agents alike
+    "GET /gnl/effort.json": () => (config.effort ? config.effort() : effortOf(card.payload)), // Online: any write first does the new day's work; this is the write that does only that
   };
   // The sandbox's own doors for players and testers: fake things, no sign-in (a real game puts its accounts there)
   if (config.sandbox !== false)
@@ -488,8 +532,9 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       },
       "POST /dev/earn": (b) => earn(String(b?.uid), b?.delta ?? {}),
       "POST /dev/ticket": (b) => ticket(String(b?.uid), String(b?.to)),
+      "POST /dev/unlink": (b) => unlink(String(b?.uid), String(b?.from)),
       "POST /dev/cross": (b) => cross(String(b?.uid), String(b?.to), b?.items, b?.ticket),
     });
 
-  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
+  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, unlink, sources, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
 }

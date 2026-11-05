@@ -72,7 +72,15 @@ for (const s of SCENARIOS) {
       assert.match(third.refused ?? "", /SOURCE/, "alice to a second account at B");
       const again = await A.cross("alice", B.origin, [{ id: "gold", qty: 100 }], B.ticket("bob", A.origin));
       assert.ok(again.grant, "alice to bob again is fine");
-      console.log(`ok    ${s.name.padEnd(8)} refused: carol (A) → bob, alice → dave (B); alice → bob still fine`);
+      B.unlink("bob", A.origin); // bob undoes alice: a week before carol, and before alice can feed dave
+      for (const [who, to] of [["carol", "bob"], ["alice", "dave"]]) {
+        const r = await A.cross(who, B.origin, [{ id: "gold", qty: 100 }], B.ticket(to, A.origin));
+        assert.match(r.refused ?? "", /waits 7 days/, `${who} → ${to} within the week`);
+      }
+      for (let i = 0; i < 7; i++) await day();
+      const later = await A.cross("carol", B.origin, [{ id: "gold", qty: 100 }], B.ticket("bob", A.origin));
+      assert.ok(later.grant, "a week later, carol may be bob's source");
+      console.log(`ok    ${s.name.padEnd(8)} refused: carol (A) → bob, alice → dave (B); bob undid alice: a week later carol is his source`);
       continue;
     }
     if (s.void) {

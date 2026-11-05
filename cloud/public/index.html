@@ -44,7 +44,7 @@
   .lang { float: right; display: flex; gap: 4px; }
   .lang button { font: 600 12px system-ui, sans-serif; background: var(--chip); color: var(--soft); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
   .lang button[aria-pressed="true"] { color: var(--ink); border-color: var(--gold); }
-  .t-contract { color: var(--good); } .t-card { color: var(--gold); }
+  .t-contract, .t-council { color: var(--good); } .t-card { color: var(--gold); }
   @media (max-width: 600px) {
     .row summary { flex-wrap: wrap; justify-content: space-between; }
     .row .what { order: 3; flex-basis: 100%; }
@@ -70,6 +70,12 @@
     <div class="card"><table id="rates"></table></div>
     <div class="card" id="policy"></div>
   </div>
+
+  <h2 data-t="effort"></h2>
+  <div class="card"><table id="effort"></table></div>
+
+  <h2 data-t="council"></h2>
+  <div class="card" id="council"></div>
 
   <h2 data-t="contracts"></h2>
   <div class="card" id="contracts"></div>
@@ -135,6 +141,8 @@ const HEAD = {
   checks: ["Kiểm tra ngay trong trình duyệt của bạn", "Verified in your browser"],
   rates: ["Bảng quy đổi", "Rate card"],
   contracts: ["Hợp đồng", "Contracts"],
+  effort: ["Công sức: cày thế nào, giá dựa vào đâu", "Effort: how it's earned, what prices stand on"],
+  council: ["Hội đồng vận hành", "Council"],
   anchors: ["Neo", "Anchors"],
   log: ["Nhật ký công khai", "Public log"],
   foot: ["Giao thức mở, đồ trong sandbox là đồ giả", "An open protocol; sandbox items are fake"],
@@ -157,7 +165,7 @@ function describe(p) {
     case "void": return `<b>${T("HUỶ lần chuyển", "VOIDED crossover")}</b> ${short(p.id)}… → ${host(p.aud)}: ${esc(p.why)}`;
     case "penalty": return T(`Phạt: tài khoản ${p.side === "sent" ? "gửi" : "nhận"} nợ ${gnl(p.cgnl)}`, `Penalty: the ${p.side === "sent" ? "sending" : "receiving"} account owes ${gnl(p.cgnl)}`);
     case "repay": return T(`Trả nợ ${gnl(p.cgnl)}, còn nợ ${gnl(p.left)}`, `Debt paid ${gnl(p.cgnl)}, ${gnl(p.left)} left`);
-    case "council": return T(`Hội đồng: ${esc(p.member?.name)} ${p.op === "join" ? "vào" : "rời"}`, `Council: ${esc(p.member?.name)} ${p.op === "join" ? "joins" : "leaves"}`);
+    case "council": return p.op === "master" ? T(`Master mới: ${esc(p.member?.account)}`, `New master: ${esc(p.member?.account)}`) : T(`Hội đồng: ${esc(p.member?.name ?? p.member?.account)} ${p.op === "join" ? "vào" : "rời"}${p.master ? " (master)" : ""}`, `Council: ${esc(p.member?.name ?? p.member?.account)} ${p.op === "join" ? "joins" : "leaves"}${p.master ? " (master)" : ""}`);
     case "tally": return T(`Kết quả bỏ phiếu: ${Math.round(p.weight)}/100, ${p.pass ? "thông qua" : "không qua"}`, `Vote result: ${Math.round(p.weight)}/100, ${p.pass ? "passed" : "failed"}`);
     default: return esc(p.type);
   }
@@ -197,11 +205,22 @@ async function load() {
   } catch (e) {
     checks.push([[`Trình duyệt này chưa kiểm được Ed25519 (${esc(e.message)})`, `This browser can't verify Ed25519 (${esc(e.message)})`], null]);
   }
-  data = { card, entries, cp, theirs, checks };
+  const effort = await fetch("/gnl/effort.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // Each council member seated with a consent their own key signed: checked here too
+  const consents = {};
+  for (const e of entries.filter((x) => x.payload.type === "council" && x.payload.op === "join")) {
+    const m = e.payload.member;
+    try {
+      consents[m.account] = e.payload.consent?.payload?.member === m.account && e.payload.consent.payload.iss === card.payload.iss && (await opens(e.payload.consent, [{ kid: m.kid, x: m.x }]));
+    } catch {
+      consents[m.account] = null;
+    }
+  }
+  data = { card, entries, cp, theirs, checks, effort, consents };
 }
 
 function render() {
-  const { card, entries, cp, theirs, checks } = data;
+  const { card, entries, cp, theirs, checks, effort, consents } = data;
   document.documentElement.lang = lang;
   for (const b of document.querySelectorAll(".lang button")) b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
   for (const el of document.querySelectorAll("[data-t]")) el.textContent = T(...HEAD[el.dataset.t]);
@@ -229,6 +248,17 @@ function render() {
     <div><b>${T("Nhận ngay", "At once")}</b>: ${Math.round(c.policy.upfront * 100)}%, ${T("phần còn lại mở dần khi chơi", "the rest unlocks with play")}</div>
     <div><b>${T("Tốc độ tối đa", "Pace")}</b>: ${Object.entries(c.pace).map(([f, g]) => `${esc(f)} ${g.burst} + ${g.perHour}/${T("giờ", "h")}`).join(" · ")}</div>
     <div class="muted" style="margin-top:6px">${T("Quốc gia", "Jurisdiction")}: ${esc(c.game.jurisdiction)} · ${T("khoá", "keys")} ${c.keys.map((k) => esc(k.kid)).join(", ")}</div>`;
+
+  const basis = { measured: T("đo từ người chơi", "measured"), design: T("theo thiết kế", "by design"), declared: T("tự khai", "declared"), guess: T("ước đoán", "a guess") };
+  $("effort").innerHTML = effort?.things?.length
+    ? `<tr><th>${T("Thứ", "Thing")}</th><th>${T("Cày thế nào", "How it's earned")}</th><th>${T("Giá dựa vào", "Basis")}</th></tr>` +
+      effort.things.map((t) => `<tr><td>${esc(t.name)} <span class="muted">(${esc(t.unit)})</span><div class="muted">${T("xuất", "out")} ${t.out ? gnl(t.out) : "—"} · ${T("nhập", "in")} ${t.in ? gnl(t.in) : "—"}</div></td><td>${esc(t.how ?? "")}</td><td>${esc(basis[t.basis] ?? t.basis ?? "")}${t.samples ? ` <span class="muted">(${t.samples} ${T("mẫu", "samples")})</span>` : ""}</td></tr>`).join("") +
+      `<tr><td colspan="3" class="muted">${T("Bảng chuẩn ở", "The standard sheet at")} <a href="/gnl/effort.json">/gnl/effort.json</a> ${T("(SPEC §4.1), người và AI cùng đọc.", "(SPEC §4.1), for people and agents alike.")}</td></tr>`
+    : `<tr><td class="muted">${T("Game này chưa công bố bảng công sức.", "This game hasn't published its effort sheet.")}</td></tr>`;
+  $("council").innerHTML = c.council?.length
+    ? c.council.map((m) => `<div>${consents[m.account] === true ? "✅" : consents[m.account] === false ? "❌" : "⚠️"} <b>${esc(m.name)}</b> · ${T("tài khoản", "account")} ${esc(m.account)}${m.account === c.master ? ` · <b>master</b>` : ""} · <a href="${esc(m.profile)}">${T("hồ sơ", "profile")}</a></div>`).join("") +
+      `<div class="muted" style="margin-top:6px">${T("✅ = người này tự ký đồng ý bằng khoá riêng của họ, trình duyệt của bạn vừa kiểm. Vào, ra, đổi master đều ghi trong nhật ký bên dưới.", "✅ = this person signed their own consent with their own key, just checked by your browser. Joins, leaves and master changes are all in the log below.")}</div>`
+    : `<span class="muted">${T("Game này chưa công bố hội đồng.", "This game hasn't published a council.")}</span>`;
 
   // Contracts: this month's and next, each side, and whether crossing is open now (SPEC §5.1)
   const now = new Date().toISOString();

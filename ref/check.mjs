@@ -55,6 +55,11 @@ assert.deepEqual([5, 4, 3, 2, 1].map((h) => [h, [9, 10, 29, 30, 49, 50, 69, 70, 
 assert.equal(five(0, 100), false);
 assert.equal(tally({ host: { yes: 3, of: 5 }, yes: 0, eligible: 10 }).pass, true, "a small game: its council's own 55% (3 of 5)");
 assert.equal(tally({ host: { yes: 2, of: 5 }, yes: 10, eligible: 10 }).pass, false);
+// The master's casting vote: only in a close result, never past a community under 10%
+assert.deepEqual(tally({ host: { yes: 4, of: 5 }, yes: 20, eligible: 100, master: "yes" }), { weight: 50, pass: true, cast: true }, "40 + 10: close, the master says yes");
+assert.equal(tally({ host: { yes: 3, of: 5 }, yes: 50, eligible: 100, master: "no" }).pass, false, "30 + 25 = 55: close, the master says no");
+assert.equal(tally({ host: { yes: 5, of: 5 }, yes: 0, eligible: 100, master: "yes" }).pass, false, "50 + 0: the players' 10% still stands");
+assert.equal(tally({ host: { yes: 2, of: 5 }, yes: 80, eligible: 100, master: "no" }).pass, true, "20 + 40 = 60: not close, the master is one seat");
 const games = [{ host: "yes", yes: 50, eligible: 100 }, { host: "no", yes: 100, eligible: 100 }, { host: "yes", yes: 0, eligible: 100 }];
 assert.equal(tallyProtocol(games).pass, true, "(75 + 50 + 50) / 3 ≈ 58");
 assert.equal(tallyProtocol(games.slice(1)).pass, false, "(50 + 50) / 2 = 50");

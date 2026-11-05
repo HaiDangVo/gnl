@@ -121,11 +121,16 @@ export const contractWindow = (m) => {
 /** A game's decision, out of 100: 50 × the share of its host's council that said yes (`host`: {yes, of}; one person
  * running the game is a council of one, "yes"/"no"), plus 50 × the share of its eligible players who said yes —
  * abstaining counts as not yes, on both sides. Passes at 55, so neither side decides alone. */
-export function tally({ host, yes, eligible }) {
+export function tally({ host, yes, eligible, master }) {
   const council = typeof host === "string" ? { yes: host === "yes" ? 1 : 0, of: 1 } : host;
   const hostShare = council.of > 0 ? Math.min(council.yes, council.of) / council.of : 0;
-  const weight = 50 * hostShare + (eligible > 0 ? (50 * Math.min(yes, eligible)) / eligible : 0);
-  return { weight, pass: eligible < SMALL ? hostShare >= 0.55 - 1e-9 : weight >= 55 - 1e-9 }; // Under 30 eligible: the council's own 55%, shown as such
+  const players = eligible > 0 ? Math.min(yes, eligible) / eligible : 0;
+  const weight = 50 * hostShare + 50 * players;
+  const small = eligible < SMALL; // Under 30 eligible: the council's own 55%, shown as such
+  const score = small ? 100 * hostShare : weight;
+  // The master's casting vote (§14): only a close result (50 to under 60), and never past a community under 10% yes
+  if (master && score >= 50 - 1e-9 && score < 60 - 1e-9 && (small || players >= 0.1 - 1e-9)) return { weight, pass: master === "yes", cast: true };
+  return { weight, pass: score >= 55 - 1e-9 };
 }
 const SMALL = 30;
 /** A protocol decision: every member game's host and community weigh 50/N each, from each game's own tally. */

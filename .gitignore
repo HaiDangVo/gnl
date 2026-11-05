@@ -4,3 +4,4 @@ node_modules/
 cloud/lib/
 cloud/node_modules/
 .firebase/
+examples/*.state.json
