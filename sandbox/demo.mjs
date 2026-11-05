@@ -22,6 +22,12 @@ const SCENARIOS = [
   { name: "renewed", days: 33, months: 2 },
   // R9: what bob received from A can't leave B again — not back to A, not on to anyone (no laundering through B)
   { name: "relay", relay: true },
+  // R10: bob takes from alice's account at A only; a second account of A sending him more is refused, and so is alice
+  // sending to a second account at B
+  { name: "sources", sources: true },
+  // §8.1: A finds alice cheated what she carried and voids it: bob's unvested part taken back, both owe the crossover's
+  // effort again; bob's next arrival pays his debt first, alice must pay hers before carrying anything out
+  { name: "void", void: true },
 ];
 
 let port = 4100;
@@ -54,6 +60,40 @@ for (const s of SCENARIOS) {
       continue;
     }
     const r = await A.cross("alice", B.origin, [{ id: "gold", qty: s.qty ?? 3000 }], tk);
+    if (s.sources) {
+      assert.ok(r.grant, "granted");
+      A.earn("carol", { gold: 2000 }, true);
+      await A.newDay();
+      await B.newDay();
+      const second = await A.cross("carol", B.origin, [{ id: "gold", qty: 100 }], B.ticket("bob", A.origin));
+      assert.match(second.refused ?? "", /SOURCE/, "a second account of A to bob");
+      B.earn("dave", { level: 1 }, true);
+      const third = await A.cross("alice", B.origin, [{ id: "gold", qty: 100 }], B.ticket("dave", A.origin));
+      assert.match(third.refused ?? "", /SOURCE/, "alice to a second account at B");
+      const again = await A.cross("alice", B.origin, [{ id: "gold", qty: 100 }], B.ticket("bob", A.origin));
+      assert.ok(again.grant, "alice to bob again is fine");
+      console.log(`ok    ${s.name.padEnd(8)} refused: carol (A) → bob, alice → dave (B); alice → bob still fine`);
+      continue;
+    }
+    if (s.void) {
+      assert.ok(r.grant, "granted");
+      await A.voidCrossover(r.offer.payload.id, "alice's gold came from a duplication bug she used");
+      const [alice, bob] = [A.player("alice"), B.player("bob")];
+      assert.equal(bob.vesting, 0, "what hadn't vested, taken back");
+      assert.equal(alice.owes, 6000);
+      assert.equal(bob.owes, 6000);
+      await assert.rejects(A.cross("alice", B.origin, [{ id: "gold", qty: 3001 }], B.ticket("bob", A.origin)), /owed/);
+      const paid = await A.cross("alice", B.origin, [{ id: "gold", qty: 1000 }], B.ticket("bob", A.origin));
+      assert.equal(paid.owed, 4000, "1000 gold burnt toward alice's debt, nothing sent");
+      assert.equal((await A.cross("alice", B.origin, [{ id: "gold", qty: 2000 }], B.ticket("bob", A.origin))).owed, 0, "alice's debt paid");
+      const bobGold = B.player("bob").gold;
+      const next = await A.cross("alice", B.origin, [{ id: "gold", qty: 1000 }], B.ticket("bob", A.origin));
+      assert.ok(next.grant, "alice carries again");
+      assert.equal(B.player("bob").owes, 4000, "bob's arrival went to his debt first");
+      assert.equal(B.player("bob").gold, bobGold, "so nothing reached him");
+      console.log(`ok    ${s.name.padEnd(8)} voided: bob's vesting gone, both owe 6000 cgnl; alice paid hers before carrying, bob's next 2000 went to his`);
+      continue;
+    }
     if (s.relay) {
       assert.ok(r.grant, "granted");
       const gold = B.player("bob").gold;

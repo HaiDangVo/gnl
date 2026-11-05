@@ -1,0 +1,19 @@
+name: Tôi tìm ra cách lừa · I found a way to cheat
+description: Góp ý quý nhất · The most valuable contribution (SPEC §13)
+title: "[cheat] "
+labels: [attack]
+body:
+  - type: input
+    id: who
+    attributes: { label: "Ai lừa ai · Who cheats whom", description: "player, game A, game B, a host, an outsider…" }
+    validations: { required: true }
+  - type: textarea
+    id: how
+    attributes: { label: "Cách làm, từng bước · How, step by step" }
+    validations: { required: true }
+  - type: textarea
+    id: why
+    attributes: { label: "Vì sao luật hiện tại không chặn · Why the current rules don't stop it", description: "R1–R10, §8.1, §13 …" }
+  - type: textarea
+    id: demo
+    attributes: { label: "Kịch bản demo (nếu có) · A demo.mjs scenario, if you have one", render: js }

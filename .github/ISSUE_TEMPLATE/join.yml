@@ -1,0 +1,42 @@
+name: Xin gia nhập · Join
+description: Đưa game của bạn vào mạng lưới · Bring your game into the network (JOINING.md)
+title: "[join] "
+labels: [join]
+body:
+  - type: input
+    id: origin
+    attributes: { label: "Origin (https://…)", description: "Địa chỉ node của game · your node's address" }
+    validations: { required: true }
+  - type: input
+    id: name
+    attributes: { label: "Tên game · Game name" }
+    validations: { required: true }
+  - type: textarea
+    id: who
+    attributes: { label: "Người chịu trách nhiệm · Who answers for it", description: "Một người liên hệ, hoặc hội đồng: tên, tài khoản trong game, link hồ sơ công khai · a contact, or a council: names, accounts in the game, public profile links (SPEC §14)" }
+    validations: { required: true }
+  - type: textarea
+    id: conform
+    attributes: { label: "npm run conform -- <origin>", render: text }
+    validations: { required: true }
+  - type: textarea
+    id: audit
+    attributes: { label: "npm run audit -- <origin> (kèm dòng chảy · with flows)", render: text }
+  - type: textarea
+    id: prices
+    attributes: { label: "Cách đo giá · How prices are measured", description: "Phương pháp và số đo · method and numbers (SPEC §4)" }
+    validations: { required: true }
+  - type: input
+    id: law
+    attributes: { label: "Quốc gia, độ tuổi, trần giờ mỗi ngày · Jurisdiction, ages, daily ceiling" }
+    validations: { required: true }
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Cam kết · Commitments
+      options:
+        - label: "Không đổi ra tiền, không cho người chơi mua bán thứ nhận được (SPEC §12) · No cash-out, no player-to-player trading of anything received"
+          required: true
+        - label: "Thứ mang đi nằm trên server, server đốt và cấp · What leaves lives on the server, which burns and grants it"
+          required: true
+        - label: "Muốn thử chuyển thật với hai sandbox · Wants live crossovers with the two sandboxes"

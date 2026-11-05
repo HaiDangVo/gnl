@@ -27,10 +27,11 @@ No protocol can make a game *unable* to lie about its own database. Giờ Nổ L
 4. **Monthly contracts.** Two games cross over only while both have signed a contract for that month, each in its own log. To continue, they renew in the month's last 7 days; during that week, nothing crosses until both have signed for the next month. No renewal, no contract. Rates may change once a week, with a week's notice. Each month renewed without a break doubles the weekly amount.
 5. **Nobody decides alone.** Every public decision (signing, renewing or ending a contract, changing how things are priced, changing the protocol) goes to a vote: the game's host has 50, its community of players 50, and 55 passes. A host of several people is a public council: each member has an account in the game itself, signs their vote with their own key, votes are public, and the 50 is shared per head. A council blocks on its own only when **all of it** says no. Details in SPEC §14.
 6. **A game made only to farm effort?** No log can prove that effort fake, so the protocol makes it not worth it: a small weekly line, at most 4 lines per 90 days one way, what arrives unlocks only with real play in the receiving game, and **what came in never leaves again** (R9), so it can't be laundered through a trusted game. Flows between games are public; the auditor points out what to look at before signing. Details in SPEC §13.1.
+7. **One person, many accounts?** A receiving account takes from **one** account of each partner game, and the other way round; a fresh account takes at most 16 hours for each day it has been there (R10). When cheating is proven, the crossover is voided and **both the sending and the receiving account owe its hours**, paid before anything else (SPEC §8.1). So take only from yourself, or someone you know well.
 
 Also: the receiving game **never sees the other game's items**, only hours, and it prices its own things itself. A junk sword from a junk game can't become a fine sword in a hit game.
 
-Details: [SPEC.md](SPEC.md). Roadmap: [ROADMAP.en.md](ROADMAP.en.md).
+Details: [SPEC.md](SPEC.md). Roadmap: [ROADMAP.en.md](ROADMAP.en.md). Bringing your game in: [JOINING.en.md](JOINING.en.md).
 
 ## What's in this repo
 
@@ -38,6 +39,7 @@ Details: [SPEC.md](SPEC.md). Roadmap: [ROADMAP.en.md](ROADMAP.en.md).
 |---|---|
 | `SPEC.md` | The `gnl/0` protocol: rate card, five messages, contracts, logs, rules R1–R8, API, security, law, decisions |
 | `ROADMAP.en.md` | The concrete roadmap, stage by stage ([Vietnamese](ROADMAP.md)) |
+| `JOINING.en.md` | Joining the network: what your game needs, the steps, how long, what Res World asks of you |
 | `schemas/gnl.schema.json` | JSON Schema for the rate card, the messages and the log |
 | `ref/gnl.js` | Reference code (`node:crypto` only): canonical JSON (RFC 8785), Ed25519, the log's Merkle tree (RFC 9162), rules R2, R3 and R8, contract windows, vote tallies |
 | `chain/` | Anchoring checkpoints on Ronin (Saigon testnet / mainnet) |
@@ -73,7 +75,7 @@ Read [AGENTS.md](AGENTS.md). Add the MCP server: `claude mcp add gnl -- node /pa
 ## Joining
 
 - Read `SPEC.md` and open an issue wherever you see a way to cheat. That's the most valuable contribution.
-- To bring your game in: follow the SPEC, try it against the two sandboxes, run the conformance test, then open an issue to sign contracts with the games already running.
+- To bring your game in: read [JOINING.en.md](JOINING.en.md), then open a "Join" issue (there's a template).
 - Each game is responsible for the law where it operates (SPEC §12).
 
 ## License

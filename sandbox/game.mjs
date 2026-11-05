@@ -5,6 +5,7 @@
  *
  *   players — uids() who to commit · state(uid) their exportable things as numbers · burn(uid, items) take them away
  *             (all or nothing, throws when short) · grant(uid, thing, qty, {from, id, upfront}) give · clawback(from)
+ *             what hasn't vested from a game · clawbackOne(uid, id) from one crossover (a void, §8.1)
  *   days    — put(day, {leaves, states}) · get(day): each day's commitment, its leaves and the salted states behind them
  *
  * With none given it's the sandbox's toy game: players and days in `s` itself (memoryPlayers, memoryDays). `clock`
@@ -37,7 +38,7 @@ export function freshState(name, iat) {
   const { kty, crv, x, d } = k.privateKey.export({ format: "jwk" });
   return {
     name, day: -1, lastDay: null, cardIat: iat, log: [], checkpoint: null, players: {}, leaves: {}, first: {}, uids: {}, tickets: {},
-    accepts: {}, grants: {}, audits: [], suspended: [], anchors: [], key: { kid: k.kid, jwk: k.jwk, private: { kty, crv, x, d } },
+    accepts: {}, grants: {}, audits: [], suspended: [], anchors: [], debts: {}, voided: {}, key: { kid: k.kid, jwk: k.jwk, private: { kty, crv, x, d } },
     secret: randomBytes(32).toString("base64url"),
   };
 }
@@ -60,11 +61,14 @@ export function memoryPlayers(s) {
       for (const it of items) if ((p.state[it.id] ?? 0) < it.qty) throw fail(409, "NOT_ENOUGH", `too little ${it.id}`);
       for (const it of items) p.state[it.id] -= it.qty;
     },
-    async grant(uid, thing, qty, { from, upfront }) {
+    async grant(uid, thing, qty, { from, id, upfront }) {
       const p = (s.players[uid] ??= { state: {}, held: {}, hist: {}, vesting: [] });
       const up = Math.floor(qty * upfront);
       p.state[thing] = (p.state[thing] ?? 0) + up;
-      p.vesting.push({ from, id: thing, left: qty - up });
+      p.vesting.push({ from, crossover: id, id: thing, left: qty - up });
+    },
+    async clawbackOne(uid, id) {
+      for (const v of s.players[uid]?.vesting ?? []) if (v.crossover === id) v.left = 0;
     },
     async clawback(from) {
       for (const p of Object.values(s.players)) for (const v of p.vesting) if (v.from === from) v.left = 0;
@@ -89,6 +93,8 @@ export const memoryDays = (s) => ({
 export function game(s, { origin, clock, config, cheat = "", players = memoryPlayers(s), days = memoryDays(s) }) {
   s.first ??= {};
   s.uids ??= {};
+  s.debts ??= {};
+  s.voided ??= {};
   const key = { kid: s.key.kid, privateKey: privateFromJwk(s.key.private) };
   const { today, at } = clock;
   const exp = Object.fromEntries(config.items.map((r) => [r.id, r.cgnlPer]));
@@ -239,18 +245,29 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   /** As the giving game: the player, signed in, gives these things up for a start in `to`. */
   async function cross(uid, to, items, tk) {
     if (!Array.isArray(items) || !items.length || items.some((it) => !exp[it.id] || !(it.qty > 0) || !Number.isInteger(it.qty))) throw fail(400, "BAD_ITEMS", "items");
-    if (config.partners && !config.partners.includes(to)) throw fail(403, "NOT_PARTNER", "not a partner of this game"); // Before fetching it
-    const pubTo = await publicOf(to).catch(() => {
-      throw fail(400, "UNREACHABLE", "that game's card can't be fetched");
-    });
-    const unbound = contractAt({ origin, entries: s.log }, pubTo, at());
-    if (unbound) throw fail(403, "CONTRACT", unbound);
     const st = await players.state(uid);
     if (!st) throw fail(404, "NO_PLAYER", uid);
     const held = s.players[uid]?.held ?? {};
     for (const it of items) if ((st[it.id] ?? 0) - (held[it.id] ?? 0) < it.qty) throw fail(400, "NOT_ENOUGH", `too little ${it.id}`);
     const p = pseudonym(uid);
     const rated = items.map((it) => ({ id: it.id, qty: it.qty, cgnl: it.qty * exp[it.id] }));
+    // A debt (§8.1) is paid before anything else: these things burnt for it, nothing sent; more than it, refused
+    const debt = s.debts[uid] ?? 0;
+    if (debt > 0) {
+      const pay = rated.reduce((n, it) => n + it.cgnl, 0);
+      if (pay > debt) throw fail(409, "DEBT", `${debt} cgnl owed: pay it first (things worth at most that)`);
+      await players.burn(uid, items);
+      s.debts[uid] = debt - pay;
+      append({ type: "repay", id: rid(), player: p, items: rated, cgnl: pay, left: s.debts[uid] });
+      sign();
+      return { repaid: pay, owed: s.debts[uid] };
+    }
+    if (config.partners && !config.partners.includes(to)) throw fail(403, "NOT_PARTNER", "not a partner of this game"); // Before fetching it
+    const pubTo = await publicOf(to).catch(() => {
+      throw fail(400, "UNREACHABLE", "that game's card can't be fetched");
+    });
+    const unbound = contractAt({ origin, entries: s.log }, pubTo, at());
+    if (unbound) throw fail(403, "CONTRACT", unbound);
     // R9, no pass-through: what came in from other games never leaves again — only effort spent here does
     const received = Object.values(s.accepts).filter((x) => x.uid === uid && s.grants[x.acc.payload.id]).reduce((n, x) => n + x.acc.payload.cgnl, 0);
     const mine = worth(Object.entries(st).map(([id, qty]) => ({ id, qty })).filter((it) => exp[it.id])) - received;
@@ -327,6 +344,14 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       throw fail(400, "TICKET", "no valid ticket from this game");
     const why = r2(a, env);
     if (why) throw fail(422, "R2", why);
+    // R10, one source: an account here takes from one account of each partner game, and that account gives to it alone
+    const bound = Object.values(s.accepts).find((x) => x.from === o.iss && (x.uid === tk.uid) !== (x.offer.payload.player === o.player));
+    if (bound) throw fail(403, "SOURCE", bound.uid === tk.uid ? "this account already takes from another account of that game" : "that account already gives to another account here");
+    // R10, the receiving side's time bound: at most hoursPerDay for each day the account has been here
+    const joined = s.first[pseudonym(tk.uid)] ?? today();
+    const taken = Object.values(s.accepts).filter((x) => x.uid === tk.uid).reduce((n, x) => n + x.acc.payload.cgnl, 0);
+    const bound2 = ((Date.parse(today()) - Date.parse(joined)) / DAY + 1) * card.payload.hoursPerDay.adult * 100;
+    if (taken + o.cgnl > bound2) throw fail(422, "R10", `${taken + o.cgnl} cgnl to one account here, ${bound2} allowed since ${joined}`);
     const week = Object.values(s.accepts).filter((x) => x.from === o.iss && x.acc.payload.iat > at(-7)).reduce((n, x) => n + x.acc.payload.cgnl, 0);
     const line = Math.min(policy.lineCap, policy.lineStart * 2 ** (contractMonths(me, a, at()) - 1)); // R5: doubles each month renewed
     if (week + o.cgnl > line) throw fail(429, "R5", `line: ${week} of ${line} taken this week`);
@@ -351,7 +376,15 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const id = rec.acc.payload.id;
     if (s.grants[id]) return s.grants[id]; // Idempotent: the same burn, the same grant
     if (cheat === "nogrant") throw fail(503, "BUSY", "try later");
-    for (const g of rec.acc.payload.grant) await players.grant(rec.uid, g.id, g.qty, { from: rec.from, id, upfront: policy.upfront });
+    // A debt here is paid first from what comes in (§8.1)
+    const owed = s.debts[rec.uid] ?? 0;
+    const pay = Math.min(owed, rec.acc.payload.cgnl);
+    const keep = (rec.acc.payload.cgnl - pay) / rec.acc.payload.cgnl;
+    for (const g of rec.acc.payload.grant) if (Math.floor(g.qty * keep) > 0) await players.grant(rec.uid, g.id, Math.floor(g.qty * keep), { from: rec.from, id, upfront: policy.upfront });
+    if (pay) {
+      s.debts[rec.uid] = owed - pay;
+      append({ type: "repay", id: rid(), offer: rec.acc.payload.offer, cgnl: pay, left: s.debts[rec.uid] });
+    }
     const g = append({ type: "grant", id, aud: rec.from, burn: hashOf(env.payload) });
     s.grants[id] = g;
     s.audits.push({ from: rec.from, offer: rec.offer, burn: env });
@@ -374,6 +407,38 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       out.push({ ...proof, state: h.state, salt: h.salt });
     }
     return seal({ type: "audit-reply", iss: origin, iat: at(), aud: req.iss, offer: req.offer, days: out }, key);
+  }
+
+  /** §8.1, as the giving game: one of its crossovers was cheated by its own player, on evidence it holds. It says so,
+   * signed (VOID, to the receiver too); the sender owes what it carried, in cgnl, paid before anything else. */
+  async function voidCrossover(offerId, why) {
+    const off = s.log.find((e) => e.payload.type === "offer" && e.payload.id === offerId);
+    if (!off || !s.log.some((e) => e.payload.type === "burn" && e.payload.id === offerId)) throw fail(404, "NO_CROSSOVER", "no burnt crossover by that id");
+    if (s.voided[offerId]) return s.voided[offerId];
+    const uid = s.uids[off.payload.player];
+    const v = append({ type: "void", id: offerId, aud: off.payload.aud, offer: hashOf(off.payload), why: String(why).slice(0, 200) });
+    s.debts[uid] = (s.debts[uid] ?? 0) + off.payload.cgnl;
+    append({ type: "penalty", id: rid(), offer: hashOf(off.payload), side: "sent", cgnl: off.payload.cgnl, player: off.payload.player });
+    s.voided[offerId] = v;
+    sign();
+    await post(`${off.payload.aud}/gnl/void`, v).catch(() => null); // The receiver also reads it from this log
+    return v;
+  }
+
+  /** §8.1, as the receiving game: a VOID from the giver — what hasn't vested is taken back, and the account that asked
+   * for it owes as much again: it chose its source (R10), so it answers for it. */
+  async function onVoid(env) {
+    const v = env?.payload;
+    const rec = Object.values(s.accepts).find((x) => x.acc.payload.offer === v?.offer);
+    if (v?.type !== "void" || !rec || !signedBy(env, await publicOf(rec.from))) throw fail(400, "BAD_VOID", "no crossover of ours for this void");
+    const id = rec.acc.payload.id;
+    if (s.voided[id]) return { ok: true };
+    s.voided[id] = env;
+    await players.clawbackOne?.(rec.uid, id);
+    s.debts[rec.uid] = (s.debts[rec.uid] ?? 0) + rec.acc.payload.cgnl;
+    append({ type: "penalty", id: rid(), offer: v.offer, side: "received", cgnl: rec.acc.payload.cgnl, void: hashOf(v) });
+    sign();
+    return { ok: true };
   }
 
   /** The fork cheat: drop the first offer from the log after a witness co-signed it, and sign the new history. */
@@ -399,7 +464,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   }
   const player = (uid) => {
     const pl = s.players[uid];
-    return pl && { ...pl.state, vesting: (pl.vesting ?? []).reduce((n, v) => n + v.left, 0) };
+    return pl && { ...pl.state, vesting: (pl.vesting ?? []).reduce((n, v) => n + v.left, 0), owes: s.debts[uid] ?? 0 };
   };
 
   const routes = {
@@ -409,6 +474,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     "POST /gnl/offer": onOffer,
     "POST /gnl/burn": onBurn,
     "POST /gnl/audit": onAudit,
+    "POST /gnl/void": onVoid,
     "POST /dev/tick": () => ({ day: s.lastDay }), // Online: any write first does the new day's work; this is the write that does only that
   };
   // The sandbox's own doors for players and testers: fake things, no sign-in (a real game puts its accounts there)
@@ -425,5 +491,5 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       "POST /dev/cross": (b) => cross(String(b?.uid), String(b?.to), b?.items, b?.ticket),
     });
 
-  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
+  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
 }

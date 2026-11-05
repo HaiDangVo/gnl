@@ -61,6 +61,11 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] Luật bỏ phiếu (SPEC §14): host 50, cộng đồng 50, cần 55; người chơi đủ điều kiện là đã có trong cam kết hằng ngày ≥ 30 ngày và chơi ≥ 10 giờ trong 30 ngày; phiếu ẩn danh một lần, có bằng chứng Merkle; game dưới 30 người đủ điều kiện thì host tự quyết và ghi rõ. `tally()` trong `ref/gnl.js`
 - [x] Hội đồng host (SPEC §14): danh sách công khai trong rate card, mỗi thành viên có tài khoản trong game và khoá riêng, phiếu ký công khai; 50 chia đều theo đầu người, hội đồng chỉ tự chặn được khi cả hội đồng phản đối
 - [x] Game đẻ ra để cày giờ (SPEC §13.1): R9 cấm chuyển tiếp cái đã nhận (demo `relay`), hạn mức ròng 90 ngày (R5) đã chạy thật, auditor có báo cáo dòng chảy (`npm run audit`, MCP `gnl_flows`), danh sách việc phải kiểm trước khi ký đối tác mới (§5.1)
+- [x] Hội đồng là bên vận hành, không bầu: vào/ra ghi log (người vào phải tự ký đồng ý), hội đồng của một đợt bầu bị đóng băng lúc mở phiếu, người vào sau 7 ngày mới tính, người rời trong 7 ngày trước vẫn giữ một ghế phiếu chống
+- [x] Quyết định nới rủi ro (ký mới, tăng hạn mức, đổi cách định giá) mới cần bỏ phiếu; thu hẹp (không gia hạn, dừng, hạ hạn mức) host tự làm; gia hạn cùng điều khoản không cần bầu lại
+- [x] R10: một nguồn cho mỗi tài khoản nhận (mỗi game đối tác), trần nhận theo số ngày có mặt (demo `sources`)
+- [x] Huỷ và phạt (SPEC §8.1): game gửi huỷ lần chuyển khi có bằng chứng; cả tài khoản gửi và nhận nợ 100% số giờ, trả nợ trước mọi thứ (demo `void`)
+- [x] `JOINING.md` / `JOINING.en.md`, mẫu issue "Xin gia nhập" và "Tôi tìm ra cách lừa"
 - [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
 - [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
 
@@ -68,7 +73,6 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 
 - [x] Đẩy repo lên GitHub công khai (https://github.com/HaiDangVo/gnl)
 - [x] Bản tiếng Anh: `README.en.md`, `ROADMAP.en.md`, trang trạng thái hai thứ tiếng (mặc định tiếng Việt)
-- [ ] Issue template "tôi tìm ra cách lừa"
 - [ ] Bài forum: vấn đề, ý tưởng, vì sao không ai lừa được ai, sandbox để thử ngay, mời tham gia
 - [ ] Gom góp ý, ra SPEC `gnl/0.1`
 

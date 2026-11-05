@@ -1,0 +1,52 @@
+# Gia nhập mạng lưới
+
+[English](JOINING.en.md) · Tiếng Việt
+
+Cho người làm game (và AI agent của họ) muốn game mình nối vào Giờ Nổ Lực, và ký hợp đồng với các game đang chạy như Res World. AI agent đọc thêm [AGENTS.md](AGENTS.md).
+
+## Game của bạn cần có gì
+
+1. **Server giữ dữ liệu thật.** Thứ người chơi mang đi phải nằm trên server, server đốt được và cấp được. Game tin save từ máy người chơi thì không đốt chắc được: người chơi gửi lại save cũ là đồ quay về (SPEC §13; Res World đã vấp lỗi này hai lần).
+2. **Một địa chỉ HTTPS** (origin) làm danh tính của game, và một khoá ký Ed25519 trong kho bí mật.
+3. **Node giao thức.** Không cần viết từ đầu: `sandbox/game.mjs` là thư viện đầy đủ (rate card, log, cam kết mỗi ngày, hai chiều chuyển, audit, hợp đồng, huỷ và phạt). Bạn chỉ viết:
+   - `players`: đọc thứ mang đi được của một tài khoản, đốt, cấp, thu hồi.
+   - `days`: lưu cam kết mỗi ngày (bảng bất kỳ).
+   - cấu hình: tên, thứ xuất/nhập và giá, `pace`.
+   Hai ví dụ chạy thật: `cloud/index.mjs` (sandbox trên Firebase) và Res World `functions/gnlNode.js` (game thật, Firestore).
+4. **Giá đo từ người chơi thật**: trung vị lượng tăng mỗi giờ chơi, công bố cách đo. Không đoán.
+5. **Một trang trong game** để người chơi tự chọn mang đi và tự bấm xác nhận, đã đăng nhập. AI không được chuyển hộ (SPEC §10).
+6. **Người chịu trách nhiệm**: một người liên hệ, hoặc danh sách hội đồng công khai nếu nhiều người vận hành (SPEC §14).
+
+## Các bước và thời gian
+
+| Bước | Làm gì | Bao lâu |
+|---|---|---|
+| 1 | Chạy local: `npm install && npm run sandbox` để xem toàn bộ luật chạy, rồi gắn node vào game của bạn | 1–2 ngày cho một AI agent, nếu game đã có server và database |
+| 2 | Đưa lên mạng; `npm run conform -- https://game-cua-ban` đến khi không còn FAIL | trong ngày |
+| 3 | Mở issue **"Xin gia nhập"** trên GitHub (mẫu có sẵn). Muốn thử chuyển thật với hai sandbox thì ghi vào đó: sandbox thêm bạn vào danh sách đối tác và ký hợp đồng trong ngày | 1 ngày |
+| 4 | Chạy đủ **30 ngày** có cam kết mỗi ngày (đã neo thời gian). Đây là điều kiện trước khi một game thật ký (SPEC §5.1) | 30 ngày |
+| 5 | Game thật xem xét: tuổi log, rate card, dòng chảy (`npm run audit`), người chịu trách nhiệm, rồi bỏ phiếu (SPEC §14) | vài ngày |
+| 6 | Hai bên ghi `contract` của tháng vào log của mình. **Có hiệu lực ngay khi đủ hai chữ ký**, hết tháng thì gia hạn trong 7 ngày cuối | ngay |
+
+Tháng đầu, mỗi game chỉ nhận của bạn tối đa 100 giờ nỗ lực mỗi tuần; mỗi tháng gia hạn liền mạch thì nhân đôi.
+
+## Res World cần gì ở bạn
+
+Ghi trong issue "Xin gia nhập":
+
+- origin, tên game, người liên hệ (hoặc hội đồng: tên, tài khoản trong game, link hồ sơ công khai);
+- kết quả `npm run conform` và `npm run audit` (cả phần dòng chảy);
+- cách bạn đo giá, và số liệu đã đo;
+- quốc gia, độ tuổi người chơi, trần giờ mỗi ngày theo luật nơi bạn chạy;
+- cam kết: không đổi ra tiền, không cho người chơi mua bán thứ nhận được (SPEC §12).
+
+Hiện Res World chưa có màn bỏ phiếu trong game, và cộng đồng chưa đủ 30 người đủ điều kiện, nên chủ game quyết và ghi rõ trong log (SPEC §14, "game nhỏ").
+
+## Thông tin chính thức ở đâu
+
+| Cho ai | Ở đâu |
+|---|---|
+| Người đọc | Repo https://github.com/HaiDangVo/gnl: `README.md`, `SPEC.md` (giao thức), `ROADMAP.md`, file này. Có bản tiếng Anh |
+| AI agent | `AGENTS.md` (hướng dẫn từng bước, luật khi sửa repo) và MCP server `mcp/server.mjs`: `gnl_spec`, `gnl_sandboxes`, `gnl_card`, `gnl_conform`, `gnl_audit`, `gnl_flows`, `gnl_verify`. Gắn: `claude mcp add gnl -- node /path/to/gnl/mcp/server.mjs` |
+| Ai cũng xem | Trang trạng thái tự kiểm trong trình duyệt: https://gnl-sandbox.web.app, https://gnl-endless.web.app (bảng quy đổi, hợp đồng, nhật ký, neo). Rate card của Res World: https://resworld.web.app/.well-known/gio-no-luc.json |
+| Hỏi, xin gia nhập, báo lỗ | GitHub Issues của repo, có mẫu cho từng việc |

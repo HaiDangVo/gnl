@@ -103,7 +103,7 @@ Two games cross over only under a **contract**: one calendar month (UTC) at a ti
 
 ### 6.1 Each game's log
 
-- Every envelope a game signs (`offer`, `accept`, `burn`, `grant`, `refund`, `commit`, `card`, `contract`, `proposal`, `council-vote`, `tally`, `key`, `revoke`, `cosign`, `proof`) is appended to **its own** log. Tickets are not logged (they carry nothing of value and expire in minutes).
+- Every envelope a game signs (`offer`, `accept`, `burn`, `grant`, `refund`, `commit`, `card`, `contract`, `council`, `proposal`, `council-vote`, `tally`, `void`, `penalty`, `repay`, `key`, `revoke`, `cosign`, `proof`) is appended to **its own** log. Tickets are not logged (they carry nothing of value and expire in minutes).
 - The log is a Merkle tree with RFC 9162 (Certificate Transparency 2.0) hashing over each entry's canonical JSON. v0 serves `GET /gnl/log/entries.jsonl` (one envelope a line, in order) and `GET /gnl/log/checkpoint.json` (an envelope: `{type: "checkpoint", iss, size, root, t}`), both static files. Large logs MAY switch to the C2SP `tlog-tiles` layout later.
 - A game MUST publish a checkpoint at least daily, and never two different roots for the same size.
 
@@ -131,6 +131,7 @@ A player's **first committed day** is the first `commit` that contains their pse
 | R7 | **Promises kept**: an ACCEPT followed by its BURN has a GRANT in B's log before `burnBy` + 24 h; a checkpoint is never forked (two signed checkpoints, same size, different roots) | public logs | fraud proof |
 | R8 | **No arbitrage** within each card | the card | reject the card |
 | R9 | **No pass-through**: what a player received through this protocol never leaves again. A game MUST refuse an OFFER for more than the player's exportable state is worth minus everything that player ever received (in cgnl, as accepted). Only effort spent in the game itself leaves it, so a trusted game can't relay another game's effort onward | the giving game itself | refuse |
+| R10 | **One source, and a receiving bound**: a receiving account takes from **one** account of each partner game, and that account gives to it alone (B binds them at the first ACCEPT); and it takes at most `hoursPerDay` for each day since its own first commitment in B. Ten accounts elsewhere can't feed one here, nor one there feed ten here, nor a fresh account here take 500 hours | B's own records | refuse |
 
 **A fraud proof** is a `proof` entry: `{against: origin, rule, evidence: [envelopes…]}` that any program can check with no judgement. Anyone MAY publish one (in their log, or just post it). On a valid proof every game MUST, as soon as it sees it: set the line for that origin to zero, stop accepting its envelopes, and claw back what has not yet vested from grants that came from it. Lines restart at `lineStart` only by the partner's own decision, logged.
 
@@ -139,6 +140,19 @@ For R7's "no GRANT before the deadline", the evidence is the ACCEPT, the BURN an
 ## 8. Audit
 
 `POST /gnl/audit` (B → A), body: an envelope `{type: "audit", iss: B, aud: A, offer: hash}`. **A answers only the game the offer went to** (`iss` = the offer's `aud`, signature checked): the ticket inside the OFFER is public, so it can't be consent for anyone else. The player's consent is the crossover itself. A answers with a signed `{type: "audit-reply", aud: B, offer: hash, days: [{day, state, salt, index, size, proof}]}` covering every day from the player's first commitment to today. B checks each against the logged `commit` roots, then applies A's `pace` limits to consecutive states (R3) and checks the burn (R4: a day's pace allowance at most). The reply is signed, so when it shows a lie it **is** the fraud proof, together with the OFFER and the BURN. A game MUST answer audits for its own offers for 180 days. Refusing an audit is treated as R3 failing.
+
+### 8.1 Voids and penalties
+
+When the giving game holds **evidence of its own** that a player cheated what they carried out — its anti-cheat, a duplication it can show, an R3/R4 finding about that player's own states — it **voids** that crossover:
+
+1. A logs `void` `{type: "void", id, aud: B, offer: <hash>, why}` and sends it to B (`POST /gnl/void`). Only the giving game can void its own crossovers: it is the one with the evidence, and admitting it is against its own interest.
+2. B takes back what hasn't vested of that grant, and both games log a `penalty` `{offer: <hash>, side: "sent" | "received", cgnl}`.
+3. **Each account owes the crossover's effort again**: the sender in A, the receiver in B — 100% each, 200% in all. So the cheat costs its whole value on top of losing it, and a person on both ends pays twice.
+4. A debt is paid **before anything else**: everything arriving for that account goes to the debt first, and the account can't carry anything out until it has paid, by giving up things worth at most what it owes (`repay`, logged; burnt, nothing sent).
+
+Why the receiver pays too: nothing reaches an account it didn't ask for — the TICKET is issued only at its own request, and R10 binds it to one source per game. Taking effort is vouching for its source: yourself, or someone you know. A stranger can't make anyone owe.
+
+What is not a penalty on players: a fraud proof against a **game** (§7). Its players couldn't check their game's books; that game is cut off and what hasn't vested clawed back, nobody's account owes. A void must name evidence a person could read; a game voiding to hurt its own players shows in its log, and its partners can end the contract.
 
 ## 9. HTTP API
 
@@ -150,6 +164,7 @@ For R7's "no GRANT before the deadline", the evidence is the ACCEPT, the BURN an
 | POST | `/gnl/burn` | A → B (or the player) | GRANT envelope |
 | GET | `/gnl/status/{id}` | anyone with the id | the envelopes of that crossover |
 | POST | `/gnl/audit` | B → A | §8 |
+| POST | `/gnl/void` | A → B | §8.1 |
 | GET | `/gnl/log/entries.jsonl`, `/gnl/log/checkpoint.json` | anyone | §6.1 |
 
 Errors: `{ "error": { "code": "…", "message": "…" } }` with a 4xx/5xx status. Rate limits are each game's own.
@@ -195,6 +210,9 @@ Each one names the attacker and what limits it. Anything still marked **open** i
 | Keep crossing with a game that no longer vouches for it | A or B | Monthly contracts, each side signed in its own log; refused without one, and in an unrenewed last week (§5.1) |
 | Build a game only to farm effort, get a trusted game to sign, pour it in | A | §13.1: bounded per week (R5), per 90 days one way (R5 net), unlocked only by real play in the receiver (R6); visible in the flows; R9 stops it going further |
 | Relay farmed effort through a trusted game to its partners | A + a willing or fooled B | R9: what came in never leaves again (§13.1) |
+| Feed one account here from ten accounts there, or swap to a fresh one when one is blocked | player | R10: one source per partner game, bound both ways at the first accept; the receiving bound; a void makes the receiver owe too (§8.1) |
+| Make a stranger owe by sending them cheated effort | player | Nothing arrives without the receiver's own ticket; R10 binds one source (§8.1) |
+| Seat friends or dismiss dissenters right before a vote | host | The council is frozen when a vote opens; joins count after 7 days, leavers keep a no seat for 7 (§14) |
 | Forge or hide a council member's vote | host | Members sign with their own keys, the ballots are logged publicly (§14) |
 | Pass its own decisions by inventing voters | host | Eligible accounts must be in the daily commitments 30 days before the vote, the count is in the signed tally, each voter can check their ballot's inclusion. **Open:** a host that plans months ahead; partners can only sample |
 | Buy or coerce votes | anyone | **Open** |
@@ -217,7 +235,7 @@ The worst a farm can do to Res World is therefore: `line` a week, 4 lines per 90
 
 ## 14. Decisions
 
-Every public decision a game makes under this protocol — signing, renewing or ending a contract (§5.1), changing how it prices things (§4) or its `policy` — and every change to the protocol itself is put to a vote. **Nobody decides alone.**
+Decisions that **widen** a game's exposure to others go to a vote: a new contract (§5.1), raising its `policy` (`lineStart`, `lineCap`, `upfront`, `vestPerHour`), changing how it prices things (§4); and every change to the protocol itself. **Nobody decides alone.** Decisions that **narrow** it — not renewing or ending a contract, lowering the policy, suspending a partner on evidence — the host MAY take alone, at once: stopping trust must never wait on a vote. Renewing a contract on the same terms needs no new vote: the vote that started it stands until the host or a later vote ends it.
 
 **Weights.** 100 in all: the game's **host** (the people who run it) 50, its **community** (its players) 50. A decision passes with **at least 55** in favor.
 
@@ -232,7 +250,13 @@ Every public decision a game makes under this protocol — signing, renewing or 
 
   Changing these numbers is a protocol decision. (`tally()` in `ref/gnl.js`.)
 
-**The council.** A host of more than one person MUST publish its members in its card: `council: [{name, account, kid, x}]` — a name, the member's **own account in the game** (as the game shows it publicly), and the member's own Ed25519 key. Each member votes by signing a `ballot` `{type: "ballot", iss: <the game>, member: <account>, proposal: <hash>, choice: "yes" | "no"}` with their own key; the game logs it wrapped in a `council-vote` entry it signs, like a `cosign` (§6.3). Council votes are **public**, so the game can neither forge nor hide one. Members' accounts don't vote again as players. Changing the council is a decision too, in force after its tally.
+**The council.** The host is the people who run the game: a council, not elected — they join when they start running it and leave when they stop, by the host's own decision. What the protocol asks is that it be **public**, and that changing it can't swing a vote:
+
+- The roster is in the card: `council: [{name, account, profile, kid, x}]` — a name, the member's **own account in the game** (as the game shows it publicly), a public profile link (so a person stands behind each seat), and the member's own Ed25519 key.
+- Every change is logged: `council` `{type: "council", op: "join" | "leave", member}`, signed by the game. A join carries the newcomer's own signed `{type: "consent", iss: <the game>, member: <account>}`, made with the key listed for them: nobody is seated, or given a key, without knowing. A leave needs no one's consent (someone who stopped working there is out at once).
+- **A vote's council is frozen when the vote opens.** A member counts for votes opening at least **7 days** after their join; a member who left within the **7 days before** a vote opened still holds a seat in it, voting no. Seating friends or dismissing dissenters can't change a vote that week.
+- Each member votes by signing a `ballot` `{type: "ballot", iss: <the game>, member: <account>, proposal: <hash>, choice: "yes" | "no"}` with their own key; the game logs it wrapped in a `council-vote` entry it signs, like a `cosign` (§6.3). Ballots are **public**, so the game can neither forge nor hide one. Members' accounts don't vote again as players.
+- What no rule can stop: the host filling seats with people of its own mind. That only moves votes **within** the host's 50 — it never reaches the community's 50, which stays the guard: even a unanimous council needs 10% of the eligible players.
 
 **Eligible players.** An account in the game's daily commitments for at least **30 days** before the vote opens, with at least **10 hours** of play in those 30 days (the game's own measure), signed in to vote. One account, one vote; a player may change their vote until the vote closes.
 

@@ -170,6 +170,18 @@
             },
             {
               "$ref": "#/$defs/council-vote"
+            },
+            {
+              "$ref": "#/$defs/void"
+            },
+            {
+              "$ref": "#/$defs/penalty"
+            },
+            {
+              "$ref": "#/$defs/repay"
+            },
+            {
+              "$ref": "#/$defs/council"
             }
           ]
         },
@@ -341,6 +353,7 @@
             "required": [
               "name",
               "account",
+              "profile",
               "kid",
               "x"
             ],
@@ -358,6 +371,10 @@
               },
               "x": {
                 "type": "string"
+              },
+              "profile": {
+                "type": "string",
+                "format": "uri"
               }
             }
           }
@@ -1059,6 +1076,121 @@
             "payload",
             "sig"
           ]
+        }
+      }
+    },
+    "void": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "aud",
+        "offer",
+        "why"
+      ],
+      "description": "SPEC §8.1: the giving game voids one of its crossovers on its own evidence",
+      "properties": {
+        "type": {
+          "const": "void"
+        },
+        "offer": {
+          "$ref": "#/$defs/hash"
+        },
+        "why": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "penalty": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "offer",
+        "side",
+        "cgnl"
+      ],
+      "description": "SPEC §8.1: an account owes a voided crossover's effort",
+      "properties": {
+        "type": {
+          "const": "penalty"
+        },
+        "offer": {
+          "$ref": "#/$defs/hash"
+        },
+        "side": {
+          "enum": [
+            "sent",
+            "received"
+          ]
+        },
+        "cgnl": {
+          "$ref": "#/$defs/cgnl"
+        }
+      }
+    },
+    "repay": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "cgnl",
+        "left"
+      ],
+      "description": "SPEC §8.1: a debt paid, from things given up or from what arrived",
+      "properties": {
+        "type": {
+          "const": "repay"
+        },
+        "cgnl": {
+          "$ref": "#/$defs/cgnl"
+        },
+        "left": {
+          "$ref": "#/$defs/cgnl"
+        }
+      }
+    },
+    "council": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "op",
+        "member"
+      ],
+      "description": "SPEC §14: the host's council changing",
+      "properties": {
+        "type": {
+          "const": "council"
+        },
+        "op": {
+          "enum": [
+            "join",
+            "leave"
+          ]
+        },
+        "member": {
+          "type": "object"
+        },
+        "consent": {
+          "type": "object",
+          "description": "join: the newcomer's own signed consent"
         }
       }
     }

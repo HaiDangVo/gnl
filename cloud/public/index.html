@@ -32,7 +32,7 @@
   th { color: var(--soft); font-weight: 600; font-size: 12px; }
   td.n { text-align: right; font-variant-numeric: tabular-nums; }
   .tag { display: inline-block; min-width: 64px; text-align: center; border-radius: 4px; padding: 1px 6px; font: 600 12px var(--mono); background: var(--chip); }
-  .t-offer, .t-burn { color: var(--gold); } .t-accept, .t-grant { color: var(--good); } .t-proof, .t-refund { color: var(--bad); }
+  .t-offer, .t-burn { color: var(--gold); } .t-accept, .t-grant { color: var(--good); } .t-proof, .t-refund, .t-void, .t-penalty { color: var(--bad); }
   .log { max-height: 560px; overflow: auto; }
   .row { border-bottom: 1px solid var(--line); padding: 8px 4px; }
   .row summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; list-style: none; }
@@ -154,6 +154,10 @@ function describe(p) {
     case "card": return T(`Bảng quy đổi mới: ${p.exports.length} thứ xuất, ${p.imports.length} thứ nhập`, `A new rate card: ${p.exports.length} exports, ${p.imports.length} imports`);
     case "contract": return T(`Ký hợp đồng tháng ${esc(p.month)} với ${host(p.aud)}`, `Signed ${esc(p.month)}'s contract with ${host(p.aud)}`);
     case "proposal": return T(`Đưa ra bỏ phiếu: ${esc(p.what)}`, `Put to the vote: ${esc(p.what)}`);
+    case "void": return `<b>${T("HUỶ lần chuyển", "VOIDED crossover")}</b> ${short(p.id)}… → ${host(p.aud)}: ${esc(p.why)}`;
+    case "penalty": return T(`Phạt: tài khoản ${p.side === "sent" ? "gửi" : "nhận"} nợ ${gnl(p.cgnl)}`, `Penalty: the ${p.side === "sent" ? "sending" : "receiving"} account owes ${gnl(p.cgnl)}`);
+    case "repay": return T(`Trả nợ ${gnl(p.cgnl)}, còn nợ ${gnl(p.left)}`, `Debt paid ${gnl(p.cgnl)}, ${gnl(p.left)} left`);
+    case "council": return T(`Hội đồng: ${esc(p.member?.name)} ${p.op === "join" ? "vào" : "rời"}`, `Council: ${esc(p.member?.name)} ${p.op === "join" ? "joins" : "leaves"}`);
     case "tally": return T(`Kết quả bỏ phiếu: ${Math.round(p.weight)}/100, ${p.pass ? "thông qua" : "không qua"}`, `Vote result: ${Math.round(p.weight)}/100, ${p.pass ? "passed" : "failed"}`);
     default: return esc(p.type);
   }

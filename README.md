@@ -27,10 +27,11 @@ Không giao thức nào bắt một game *không thể* nói dối về dữ li�
 4. **Hợp đồng theo tháng.** Hai game chỉ chuyển qua lại khi cả hai đã ký hợp đồng cho tháng đó, mỗi bên ký vào log của mình. Muốn tiếp tục thì gia hạn trong 7 ngày cuối tháng; trong tuần đó, chưa đủ hai chữ ký cho tháng sau thì không chuyển được. Không gia hạn là hết hợp đồng. Giá quy đổi đổi được mỗi tuần, báo trước một tuần. Mỗi tháng gia hạn liền mạch thì hạn mức tuần nhân đôi.
 5. **Không ai tự quyết.** Mọi quyết định công khai (ký, gia hạn, kết thúc hợp đồng, đổi cách định giá, sửa giao thức) đều bỏ phiếu: host của game 50, cộng đồng người chơi 50, cần 55 để thông qua. Host nhiều người thì là một hội đồng công khai: mỗi thành viên có tài khoản trong chính game, ký phiếu bằng khoá riêng, phiếu công khai, và 50 chia đều theo đầu người. Hội đồng chỉ chặn được một mình khi **cả hội đồng** cùng phản đối. Chi tiết SPEC §14.
 6. **Game đẻ ra chỉ để cày giờ?** Không log nào chứng minh được giờ đó là giả, nên giao thức làm cho nó không đáng công: mỗi tuần chỉ nhận một hạn mức nhỏ, chảy một chiều thì 90 ngày tối đa 4 hạn mức, phần nhận chỉ mở theo giờ chơi thật ở game nhận, và **cái đã nhận không bao giờ chuyển đi tiếp** (R9), nên không rửa qua game uy tín được. Dòng chảy giữa các game công khai, auditor chỉ ra game nào đáng nghi trước khi ký. Chi tiết SPEC §13.1.
+7. **Một người, nhiều tài khoản?** Mỗi tài khoản nhận chỉ lấy từ **một** tài khoản của mỗi game đối tác, và ngược lại; tài khoản mới tạo cũng chỉ nhận tối đa 16 giờ cho mỗi ngày đã có mặt (R10). Bị phát hiện gian lận chắc chắn thì lần chuyển bị huỷ, và **cả tài khoản gửi lẫn nhận đều nợ đúng số giờ đó**; nợ phải trả trước mọi thứ khác (SPEC §8.1). Vì vậy chỉ nhận từ chính mình hoặc người mình biết rõ.
 
 Ngoài ra, game nhận **không bao giờ thấy món đồ của game kia**, chỉ thấy số giờ, và tự định giá đồ của mình. Thanh kiếm rác từ game rác không thể biến thành thanh kiếm xịn ở game hot.
 
-Chi tiết: [SPEC.md](SPEC.md). Lộ trình: [ROADMAP.md](ROADMAP.md).
+Chi tiết: [SPEC.md](SPEC.md). Lộ trình: [ROADMAP.md](ROADMAP.md). Muốn cho game của bạn tham gia: [JOINING.md](JOINING.md).
 
 ## Repo này có gì
 
@@ -38,6 +39,7 @@ Chi tiết: [SPEC.md](SPEC.md). Lộ trình: [ROADMAP.md](ROADMAP.md).
 |---|---|
 | `SPEC.md` | Giao thức `gnl/0` (tiếng Anh): rate card, 5 thông điệp, hợp đồng, log, các luật R1–R8, API, bảo mật, pháp lý, bỏ phiếu |
 | `ROADMAP.md` | Lộ trình cụ thể từng giai đoạn |
+| `JOINING.md` | Gia nhập mạng lưới: game cần gì, các bước, mất bao lâu, Res World cần gì ở bạn |
 | `schemas/gnl.schema.json` | JSON Schema cho rate card, các thông điệp và log |
 | `ref/gnl.js` | Code tham chiếu (chỉ dùng `node:crypto`): canonical JSON (RFC 8785), ký/kiểm Ed25519, cây Merkle của log (RFC 9162), luật R2, R3 và R8, cửa sổ hợp đồng, kiểm phiếu |
 | `chain/` | Neo checkpoint lên Ronin (Saigon testnet / mainnet) |
@@ -73,7 +75,7 @@ Mở thẳng hai link trên là thấy trang cho người xem: bảng quy đổi
 ## Tham gia
 
 - Đọc `SPEC.md`, mở issue nếu thấy chỗ nào để lừa được. Đây là phần góp ý quý nhất.
-- Muốn cho game của bạn tham gia: làm theo SPEC, chạy thử với hai sandbox ở trên, chạy conformance test, rồi mở issue để ký hợp đồng với các game đang chạy.
+- Muốn cho game của bạn tham gia: đọc [JOINING.md](JOINING.md), rồi mở issue "Xin gia nhập" (có mẫu).
 - Mỗi game tự chịu trách nhiệm về pháp luật nơi mình hoạt động (SPEC §12).
 
 ## Giấy phép

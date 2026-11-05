@@ -13,6 +13,8 @@ mechanically (SPEC §7, §13) and cut off automatically. There is no token, no c
 
 ## Helping a game join (the usual task)
 
+The human version, with timings and what Res World asks: [JOINING.en.md](JOINING.en.md).
+
 1. Read `SPEC.md` §1–§9. Or use the MCP tool `gnl_spec`.
 2. Play with the live sandboxes first: `gnl_sandboxes` shows the curl steps for a crossover.
    - https://gnl-endless.web.app
@@ -26,8 +28,9 @@ mechanically (SPEC §7, §13) and cut off automatically. There is no token, no c
    the player's own confirmation inside the game, signed in. Never an agent's.**
 5. Serve the card, the log and the checkpoint. Commit daily. Witness your partners. Accept offers only from
    partners (SSRF, §10), and only under a contract in force (§5.1): sign your side each month, renew in the last
-   7 days. Signing, renewing and changing how you price things are decisions put to a vote of host and players
-   (§14).
+   7 days. A new contract, a higher policy or a new pricing method is put to a vote of host and players (§14);
+   renewing on the same terms, ending and lowering are the host's own. Enforce R9 and R10 (they're in `game.mjs`),
+   and void your own crossovers when you have evidence a player cheated (§8.1).
 6. Run `npm run conform -- https://your-game.example` until it passes, then `npm run audit -- <your origin> <a partner>`.
 7. Open an issue on https://github.com/HaiDangVo/gnl asking to join, with your origin and the conformance output.
 

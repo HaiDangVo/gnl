@@ -61,6 +61,11 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] Voting rules (SPEC §14): host 50, community 50, 55 to pass; a player is eligible after ≥ 30 days in the daily commitments and ≥ 10 hours played in 30 days; one-time anonymous ballots with Merkle proofs; with under 30 eligible players the host decides and says so. `tally()` in `ref/gnl.js`
 - [x] Host councils (SPEC §14): members public in the rate card, each with an account in the game and their own key, ballots signed in public; the 50 shared per head, a council blocks alone only when all of it says no
 - [x] Games made to farm effort (SPEC §13.1): R9 forbids passing on what came in (demo `relay`), R5's 90-day net enforced, the auditor's flow report (`npm run audit`, MCP `gnl_flows`), a checklist before signing a new partner (§5.1)
+- [x] The council is the people who run the game, not elected: joins and leaves logged (a newcomer signs their own consent), a vote's council frozen when it opens, joins counting after 7 days, leavers keeping a no seat for 7
+- [x] Only decisions that widen exposure (a new contract, a higher policy, a new pricing method) need a vote; narrowing ones (not renewing, ending, lowering) the host takes alone; renewing on the same terms needs no new vote
+- [x] R10: one source per receiving account (per partner game), a receiving bound by days present (demo `sources`)
+- [x] Voids and penalties (SPEC §8.1): the giving game voids a crossover on its own evidence; both the sending and the receiving account owe 100% of its hours, paid before anything else (demo `void`)
+- [x] `JOINING.md` / `JOINING.en.md`, issue templates "Join" and "I found a way to cheat"
 - [ ] Res World: voting in game, `proposal` / `tally` in its log (backlog #368)
 - [ ] Protocol votes: each member game logs a `proposal` for a SPEC pull request, combined with `tallyProtocol()`
 
@@ -68,7 +73,6 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 
 - [x] The repo public on GitHub (https://github.com/HaiDangVo/gnl)
 - [x] English: `README.en.md`, `ROADMAP.en.md`, a bilingual status page (Vietnamese by default)
-- [ ] An "I found a way to cheat" issue template
 - [ ] A forum post: the problem, the idea, why nobody can cheat anybody, sandboxes to try right away, an invitation
 - [ ] Gather comments, publish SPEC `gnl/0.1`
 
