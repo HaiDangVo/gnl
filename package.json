@@ -2,7 +2,7 @@
   "name": "gio-no-luc",
   "version": "0.0.0",
   "private": true,
-  "description": "Gi\u1edd N\u1ed5 L\u1ef1c \u2014 an open protocol for players to carry their effort from one game to another",
+  "description": "Giờ Nổ Lực — an open protocol for players to carry their effort from one game to another",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -16,7 +16,8 @@
     "audit": "node sandbox/auditor.mjs",
     "conform": "node sandbox/conform.mjs",
     "mcp": "node mcp/server.mjs",
-    "council": "node tools/council.mjs"
+    "council": "node tools/council.mjs",
+    "order": "node tools/order.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",

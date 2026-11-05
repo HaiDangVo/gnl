@@ -32,7 +32,7 @@ Hai bản của một game giả (`sandbox/node.mjs`: vàng, cấp, ngọc; đ�
 - [x] Trang cho người xem ở `/` của mỗi node: rate card, nhật ký dễ đọc, hợp đồng, link neo (Ronin, file .ots), và tự kiểm chữ ký + gốc Merkle ngay trong trình duyệt
 - [x] Conformance test (`npm run conform -- <origin>`): pass cả 2 sandbox. Nó bắt được một lỗ SSRF (offer từ origin lạ làm server fetch bừa), đã vá: chỉ nhận offer từ đối tác
 - [x] `AGENTS.md` + MCP server (`mcp/server.mjs`, chỉ đọc): agent của game khác tự đọc SPEC, thử sandbox, chạy conformance và audit
-- [x] Một game thật cắm vào node: Endless Run (https://endless-run.web.app). Coin mỗi lượt vào ví ở `gnl-endless`, nút "Carry them to Sandbox" ngay trên màn game over
+- [x] Endless Run (https://endless-run.web.app) cắm vào node, làm **sandbox thứ hai** (không phải game đối tác thật, 2026-11-05): coin mỗi lượt vào ví ở `gnl-endless`, nút "Carry them to Sandbox" ngay trên màn game over. Hai sandbox để dễ thử và dễ lộ bug
 
 **Xong khi:** một lần chuyển đầy đủ chạy được cả hai chiều; auditor bắt đủ 5 kiểu gian lận; conformance test pass trên sandbox.
 
@@ -72,6 +72,10 @@ Res World là một node: https://resworld.web.app/.well-known/gio-no-luc.json (
 - [x] Số ngày đối tác tối thiểu là tham số của từng game (`policy.partnerMinDays`): Res World 7, tăng dần tới 30
 - [x] `examples/your-game.mjs`; bot tự chạy conformance + audit dưới mỗi issue xin gia nhập
 - [x] Res World: giá nhập tu vi theo tốc độ ngồi thiền nếu chậm hơn số đo (trước đó rẻ gấp ~15 lần); Sandbox chỉ cho tài khoản test; UI chia 3 tab
+- [x] Hội đồng quyết thay master (SPEC §14): hội đồng một người thì master tự quyết; từ hai người, mọi việc riêng của game là `order` có quá nửa số ghế ký (việc chỉ giảm rủi ro: hoà thì theo master; ghế và master không bao giờ quyết bằng hoà); master một mình chỉ `pause` tối đa 7 ngày. `POST /gnl/order`, `npm run order`, `orderOk()`; conformance kiểm từng lệnh (demo `council`)
+- [x] Thu phần chưa trao (SPEC §8.2, `cut`): game nhận tự sửa lỗi giá của mình, không ai nợ. Res World thu phần chưa mở của Bọ Chét từ Sandbox (lệnh của master)
+- [x] R10 ghi log: `link` on/off, mỗi accept ghi `holder`; `links()` kiểm từ log, auditor đối chiếu với offer của game gửi, conformance kiểm
+- [x] Endless Run là sandbox thứ hai: tài khoản thật của Res World không chuyển với sandbox nào
 - [ ] Res World: màn bỏ phiếu trong game, ghi `proposal` / `tally` vào log (backlog #368)
 - [ ] Bỏ phiếu cấp giao thức: mỗi game thành viên ghi `proposal` cho một PR của SPEC, gộp bằng `tallyProtocol()`
 

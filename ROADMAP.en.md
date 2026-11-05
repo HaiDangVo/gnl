@@ -32,7 +32,7 @@ Two copies of a fake game (`sandbox/node.mjs`: gold, levels, gems; a simulated d
 - [x] A page for people at each node's `/`: rate card, the log in plain words, contracts, anchor links (Ronin, .ots files), and the signatures and Merkle root checked right in the browser
 - [x] Conformance test (`npm run conform -- <origin>`): both sandboxes pass. It caught an SSRF hole (an offer from a stranger's origin made the server fetch anything), closed: offers only from partners
 - [x] `AGENTS.md` + MCP server (`mcp/server.mjs`, read-only): another game's agent reads the SPEC, tries the sandboxes, runs conformance and audits by itself
-- [x] A real game plugged into a node: Endless Run (https://endless-run.web.app). Each run's coins go to a wallet at `gnl-endless`, with a "Carry them to Sandbox" button on the game over screen
+- [x] Endless Run (https://endless-run.web.app) on a node as the **second sandbox** (not a real partner game, 2026-11-05): each run's coins go to a wallet at `gnl-endless`, with a "Carry them to Sandbox" button on the game over screen. Two sandboxes to try things and shake out bugs
 
 **Done when:** a full crossover runs both ways; the auditor catches all five cheats; the conformance test passes on the sandboxes.
 
@@ -72,6 +72,10 @@ Res World is a node: https://resworld.web.app/.well-known/gio-no-luc.json (code 
 - [x] The minimum partner age is each game's own (`policy.partnerMinDays`): Res World 7, rising toward 30
 - [x] `examples/your-game.mjs`; a bot runs conformance + audit under every join issue
 - [x] Res World: incoming cultivation priced at sitting's pace when that's slower than measured (it was ~15× too cheap); the Sandbox for test accounts only; the sheet in three tabs
+- [x] The council decides, not the master (SPEC §14): a council of one is its master; from two members on, every act of the game's own is an `order` signed by more than half the seats (on acts that only reduce risk a tie goes the master's way; seats and the master are never decided by a tie); the master alone can only `pause`, at most 7 days. `POST /gnl/order`, `npm run order`, `orderOk()`; conformance re-checks every order (demo `council`)
+- [x] Cutting what hasn't been handed over (SPEC §8.2, `cut`): a receiving game fixing its own pricing mistake, nobody owes. Res World cut what Bọ Chét hadn't unlocked from the Sandbox (the master's order)
+- [x] R10 logged: `link` on/off, each accept naming its `holder`; `links()` checks it from the log, the auditor against the giving game's offers, conformance too
+- [x] Endless Run is the second sandbox: Res World's real accounts cross with neither
 - [ ] Res World: voting in game, `proposal` / `tally` in its log (backlog #368)
 - [ ] Protocol votes: each member game logs a `proposal` for a SPEC pull request, combined with `tallyProtocol()`
 

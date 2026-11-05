@@ -1,12 +1,12 @@
 /**
  * The auditor anyone can run: reads every game's public log and checks the rules that need no one's consent — R1
- * signatures, R2 time bounds, R7 promises and forks — and re-checks every fraud proof a game logged (R3/R4 from
+ * signatures, R2 time bounds, R7 promises and forks, R10 links — and re-checks every fraud proof a game logged (R3/R4 from
  * audits). It trusts no game, only signatures and arithmetic.
  *
  *   node sandbox/auditor.mjs http://localhost:4001 http://localhost:4002
  */
 import { hashOf } from "../ref/gnl.js";
-import { auditFinds, forks, publicOf, r2, r7Promises, signedBy } from "./rules.mjs";
+import { auditFinds, forks, links, publicOf, r2, r7Promises, signedBy } from "./rules.mjs";
 
 export async function audit(origins) {
   const pubs = await Promise.all(origins.map(publicOf));
@@ -16,6 +16,13 @@ export async function audit(origins) {
     for (const e of pub.entries.filter((x) => x.payload.type === "offer")) {
       const why = r2(pub, e);
       if (why) out.push({ against: pub.origin, rule: "R2", why, evidence: [e] });
+    }
+    // R10: links one source at a time in each log, and each accept's holder linked to the very account that offered
+    const l = links(pub.entries);
+    for (const why of l.breaches) out.push({ against: pub.origin, rule: "R10", why });
+    for (const [offer, source] of l.sources) {
+      const o = pubs.flatMap((x) => x.entries).find((e) => e.payload.type === "offer" && hashOf(e.payload) === offer);
+      if (o && o.payload.player !== source) out.push({ against: pub.origin, rule: "R10", why: `accept for offer ${o.payload.id}: its holder is linked to another account` });
     }
     // Proofs a game logged from its own audits: re-checked here, not taken on its word
     for (const p of pub.entries.filter((x) => x.payload.type === "proof" && x.payload.rule !== "R7")) {

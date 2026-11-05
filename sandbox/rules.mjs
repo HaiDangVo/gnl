@@ -164,3 +164,78 @@ export const effortOf = (c) => ({
   protocol: c.protocol, game: c.iss, at: c.iat,
   things: c.exports.map((r) => ({ id: r.id, name: r.name, unit: r.unit, out: r.cgnlPer, in: c.imports.find((i) => i.id === r.id)?.cgnlPer ?? null, basis: "declared", how: "" })),
 });
+
+/** The game's own acts, once it has a council (§14): an `order` {op, …, why, made, ballots} its members signed. null
+ * when it holds at `t`: yes from more than half the seats, or from half with the master among them — the council as
+ * frozen for a vote (joins count after 7 days; the council as it stands while it's younger than that); on an act that
+ * only reduces risk, half with the master among them; a `resign` by the member alone; a `pause` by the master alone. */
+const NARROW = ["pause", "end", "void", "cut"]; // Acts that only ever reduce a game's exposure
+export function orderOk(entries, o, t) {
+  const { ballots = [], iat: _, ...body } = o;
+  const h = hashOf(body);
+  if (!(body.made <= new Date(Date.parse(t) + 600_000).toISOString() && body.made >= new Date(Date.parse(t) - 7 * DAY).toISOString())) return "made more than a week before it was logged";
+  let c = roster(entries, t, true);
+  if (!c.members.length) c = roster(entries, t);
+  if (!c.members.length) return "no council";
+  const yes = new Set();
+  for (const b of ballots) {
+    const m = c.members.find((x) => x.account === b?.payload?.member);
+    if (m && b.payload.type === "ballot" && b.payload.iss === o.iss && b.payload.proposal === h && b.payload.choice === "yes" && opens(b, [{ kty: "OKP", crv: "Ed25519", x: m.x, kid: m.kid }])) yes.add(m.account);
+  }
+  if (o.op === "resign") return yes.has(o.account) && roster(entries, t).members.some((m) => m.account === o.account) ? null : "a resign is signed by that member, seated";
+  if (o.op === "pause") return yes.has(c.master) ? null : "a pause is the master's";
+  const n = c.members.length;
+  const tie = NARROW.includes(o.op) && 2 * yes.size === n && yes.has(c.master); // A split council on reducing risk: the master's side
+  return 2 * yes.size > n || tie ? null : `${yes.size} of ${n} seats said yes: more than half needed${NARROW.includes(o.op) ? " (half with the master)" : ""}`;
+}
+
+export const UNLINK_DAYS = 7;
+/** R10 from a log's `link` entries {aud: partner, holder, source, op: "on" | "off"}, in order: the links live at the end,
+ * and every breach — a holder or a source with two live links, a new link within UNLINK_DAYS of one undone (either
+ * side), an accept whose `holder` has no live link; and the source each accept's holder was linked to. `holder` is the game's pseudonym of its account for that partner,
+ * `source` the partner's of the giving account (its offers' `player`). */
+export function links(entries) {
+  const live = new Map(); // `${aud}|h|${holder}`, `${aud}|s|${source}` → the link's payload
+  const off = new Map(); // the same keys → {at, other}: when that side last undid a link, and with whom
+  const breaches = [];
+  const sources = new Map(); // an accept's offer hash → the source its holder was linked to then
+  const fail = (p, why) => breaches.push(`${p.iat.slice(0, 10)}: ${why}`);
+  // The links a game kept before they were logged: the run of `link`s its log starts them with, carried over as they
+  // were (a later one replacing an earlier it clashes with), like the first council
+  const first = entries.findIndex((e) => e.payload.type === "link");
+  let carried = first;
+  while (carried >= 0 && entries[carried]?.payload.type === "link") carried++;
+  for (const [i, e] of entries.entries()) {
+    const p = e.payload;
+    if (p.type === "accept" && p.holder) {
+      const l = live.get(`${p.aud}|h|${p.holder}`);
+      if (l) sources.set(p.offer, l.source);
+      else fail(p, `accept ${p.id}: its holder has no live link (R10)`);
+    }
+    if (p.type !== "link") continue;
+    const [h, s] = [`${p.aud}|h|${p.holder}`, `${p.aud}|s|${p.source}`];
+    if (p.op === "off") {
+      if (live.get(h)?.source !== p.source) fail(p, "undoes a link that isn't there");
+      live.delete(h);
+      live.delete(s);
+      off.set(h, { at: p.iat, other: p.source });
+      off.set(s, { at: p.iat, other: p.holder });
+      continue;
+    }
+    if (i >= first && i < carried) {
+      for (const k of [h, s]) if (live.has(k)) for (const x of [`${p.aud}|h|${live.get(k).holder}`, `${p.aud}|s|${live.get(k).source}`]) live.delete(x);
+      live.set(h, p);
+      live.set(s, p);
+      continue;
+    }
+    if (live.has(h)) fail(p, "this account takes from another account of that game: undo that link first");
+    if (live.has(s)) fail(p, "that account gives to another account here");
+    const wait = (k, other) => off.get(k) && off.get(k).other !== other && Date.parse(p.iat) - Date.parse(off.get(k).at) < UNLINK_DAYS * DAY && off.get(k).at;
+    const [wh, ws] = [wait(h, p.source), wait(s, p.holder)];
+    if (wh) fail(p, `this account undid its link on ${wh.slice(0, 10)}: a new source waits ${UNLINK_DAYS} days`);
+    if (ws) fail(p, `that account left another account here on ${ws.slice(0, 10)}: a new link waits ${UNLINK_DAYS} days`);
+    live.set(h, p);
+    live.set(s, p);
+  }
+  return { live, breaches, sources };
+}

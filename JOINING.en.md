@@ -16,7 +16,7 @@ For game developers (and their AI agents) who want their game on Giờ Nổ Lự
    An effort sheet at `/gnl/effort.json` (SPEC §4.1): how each thing is earned and what its price stands on (measured, design, declared or a guess).
 4. **Prices measured from real players**: the median growth per hour played, with the method published. No guesses.
 5. **A page in the game** where the player chooses what to carry and confirms it themselves, signed in. An AI never moves anything for them (SPEC §10).
-6. **Someone accountable**: a master (the game's owner) and a public council of the people running it; each makes their key and signs their consent on their own machine with `npm run council` (SPEC §14).
+6. **Someone accountable**: a master (the game's owner) and a public council of the people running it; each makes their key and signs their consent on their own machine with `npm run council` (SPEC §14). From two members on, every council change and every act of the game's own is an order more than half the council signs (`npm run order`).
 
 ## Steps and timing
 

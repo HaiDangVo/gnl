@@ -6,8 +6,9 @@
  */
 import assert from "node:assert/strict";
 import { audit } from "./auditor.mjs";
-import { startNode } from "./node.mjs";
-import { contractMonths, publicOf } from "./rules.mjs";
+import { hashOf, newKey, seal } from "../ref/gnl.js";
+import { startNode, TOY } from "./node.mjs";
+import { contractMonths, links, publicOf } from "./rules.mjs";
 
 const SCENARIOS = [
   { name: "honest", expect: null },
@@ -28,13 +29,25 @@ const SCENARIOS = [
   // §8.1: A finds alice cheated what she carried and voids it: bob's unvested part taken back, both owe the crossover's
   // effort again; bob's next arrival pays his debt first, alice must pay hers before carrying anything out
   { name: "void", void: true },
+  // §14: B's council, mia (master) and ned. Mia alone can't seat a friend or unseat ned; with ned she can. A price
+  // mistake of B's is cut by the council, no one owes. Every act an `order` with its members' ballots, in B's log
+  { name: "council", council: true },
 ];
+
+/** A council member of the game at `origin`: their own key, their consent; `vote(order)` signs their yes. */
+const member = (origin, account, master) => {
+  const k = newKey(`council-${account}`);
+  const m = { name: account, account, profile: `https://example.com/${account}`, kid: k.kid, x: k.jwk.x };
+  return { account, seat: { member: m, consent: seal({ type: "consent", iss: origin, member: account, iat: "2026-10-01T00:00:00.000Z" }, k), ...(master ? { master } : {}) }, vote: (o) => seal({ type: "ballot", iss: origin, member: account, proposal: hashOf(o), choice: "yes" }, k) };
+};
 
 let port = 4100;
 let failed = 0;
 for (const s of SCENARIOS) {
   const A = await startNode({ name: "a", port: ++port, cheat: s.cheatA });
-  const B = await startNode({ name: "b", port: ++port, cheat: s.cheatB });
+  const bOrigin = `http://localhost:${++port}`;
+  const crew = s.council && [member(bOrigin, "mia", true), member(bOrigin, "ned")];
+  const B = await startNode({ name: "b", port, cheat: s.cheatB, config: crew ? { ...TOY, council: crew.map((c) => c.seat) } : TOY });
   A.earn("alice", { gold: 2000, level: 1 }, true);
   B.earn("bob", { level: 1 }, true);
   let n = 0;
@@ -81,6 +94,30 @@ for (const s of SCENARIOS) {
       const later = await A.cross("carol", B.origin, [{ id: "gold", qty: 100 }], B.ticket("bob", A.origin));
       assert.ok(later.grant, "a week later, carol may be bob's source");
       console.log(`ok    ${s.name.padEnd(8)} refused: carol (A) → bob, alice → dave (B); bob undid alice: a week later carol is his source`);
+      continue;
+    }
+    if (s.council) {
+      assert.ok(r.grant, "granted");
+      const [mia, ned] = crew;
+      const order = (op, fields, ...by) => {
+        const o = { type: "order", iss: B.origin, op, ...fields, why: "demo", made: B.state.log.at(-1).payload.iat };
+        return B.onOrder({ ...o, ballots: by.map((c) => c.vote(o)) });
+      };
+      const zoe = member(B.origin, "zoe");
+      const seat = { member: zoe.seat.member, consent: zoe.seat.consent };
+      await assert.rejects(order("seat", seat, mia), /1 of 2 seats/, "mia, master, is half the council: not enough to seat anyone");
+      await order("seat", seat, mia, ned);
+      await assert.rejects(order("unseat", { account: "ned" }, mia), /seats said yes/, "mia can't unseat ned alone");
+      await order("unseat", { account: "zoe" }, mia, ned);
+      await order("resign", { account: "ned" }, ned);
+      const vesting = B.player("bob").vesting;
+      await order("cut", { id: r.offer.payload.id }, mia);
+      assert.equal(B.player("bob").vesting, 0, `${vesting} gold still vesting, cut`);
+      assert.equal(B.player("bob").owes, 0, "a game's own mistake: nobody owes");
+      const pub = await publicOf(B.origin);
+      assert.deepEqual(pub.card.payload.council.map((m) => m.account), ["mia"]);
+      assert.equal(links(pub.entries).breaches.length, 0, "R10 holds in B's log");
+      console.log(`ok    ${s.name.padEnd(8)} mia alone refused; with ned zoe seated, then unseated; ned resigned; ${vesting} gold vesting cut, nobody owes`);
       continue;
     }
     if (s.void) {

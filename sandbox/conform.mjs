@@ -7,7 +7,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { arbitrage, contractWindow, hashOf, merkleRoot, newKey, seal } from "../ref/gnl.js";
-import { consentOk, publicOf, r2, roster, signedBy } from "./rules.mjs";
+import { consentOk, links, orderOk, publicOf, r2, roster, signedBy } from "./rules.mjs";
 
 export async function conform(origin) {
   const out = [];
@@ -46,6 +46,27 @@ export async function conform(origin) {
   check("council: every member seated with their own signed consent (§14)", !forged.length, forged.map((e) => e.payload.member.account).join(", "));
   const r = roster(pub.entries);
   check("council: the card's council is the log's, with one master among them", JSON.stringify(c.council ?? []) === JSON.stringify(r.members) && (!r.members.length || r.members.some((m) => m.account === c.master)), "card ≠ log");
+  // §14: after the first council, every change and every act of the game's own is an order its council signed
+  const orders = new Map();
+  const unbacked = [];
+  const first = pub.entries.findIndex((e) => e.payload.type === "council");
+  let seeded = first; // The first council: the run of joins the log starts it with
+  while (seeded >= 0 && pub.entries[seeded]?.payload.type === "council" && pub.entries[seeded].payload.op === "join") seeded++;
+  pub.entries.forEach((e, i) => {
+    const p = e.payload;
+    if (p.type === "order") {
+      const why = orderOk(pub.entries.slice(0, i), p, p.iat);
+      if (why) unbacked.push(`order ${p.op}: ${why}`);
+      else orders.set(hashOf(Object.fromEntries(Object.entries(p).filter(([k]) => k !== "ballots" && k !== "iat"))), p);
+    }
+    if (p.type === "council" && !(i >= first && i < seeded) && !orders.has(p.order)) unbacked.push(`council ${p.op} ${p.member.account}`);
+    if ((p.type === "void" || p.type === "cut") && roster(pub.entries.slice(0, i), p.iat).members.length && orders.get(p.order)?.id !== p.id) unbacked.push(`${p.type} ${p.id}`);
+  });
+  check("council: after the first, every change and the game's own acts are orders its council signed (§14)", !unbacked.length, unbacked.slice(0, 3).join("; "));
+  const l = links(pub.entries);
+  const firstLink = pub.entries.findIndex((e) => e.payload.type === "link");
+  const bare = firstLink < 0 ? [] : pub.entries.slice(firstLink).filter((e) => e.payload.type === "accept" && !e.payload.holder);
+  check("R10: links logged, one source at a time, a week after undoing one; every accept names its holder", !l.breaches.length && !bare.length, l.breaches[0] ?? `accept ${bare[0]?.payload.id} without a holder`);
   const effort = await fetch(`${origin}/gnl/effort.json`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
   check("effort sheet: /gnl/effort.json, a thing for each export at the card's prices (§4.1)", effort && c.exports.every((x) => effort.things?.some((t) => t.id === x.id && t.out === x.cgnlPer)), "missing or off the card");
   const bad = pub.entries.filter((e) => e.payload.type === "offer").map((e) => r2(pub, e)).filter(Boolean);

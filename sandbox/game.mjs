@@ -19,10 +19,9 @@
  */
 import { createHmac, randomBytes } from "node:crypto";
 import { contractWindow, hashOf, inclusionProof, merkleRoot, monthAdd, newKey, opens, privateFromJwk, seal } from "../ref/gnl.js";
-import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, publicOf, r2, roster, signedBy, stateHash } from "./rules.mjs";
+import { auditFinds, consentOk, contractAt, contractMonths, effortOf, leafOf, links, orderOk, publicOf, r2, roster, signedBy, stateHash, UNLINK_DAYS } from "./rules.mjs";
 
 const DAY = 86_400_000;
-const UNLINK_DAYS = 7; // R10: a week between undoing a source and any new one — the weekly line's own rhythm
 const rid = () => randomBytes(16).toString("base64url");
 export const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
 
@@ -96,8 +95,6 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   s.uids ??= {};
   s.debts ??= {};
   s.voided ??= {};
-  // R10's links, "partner|uid" → {player, at, off}: from the accepts, for a state from before they were kept
-  s.links ??= Object.fromEntries(Object.values(s.accepts).map((x) => [`${x.from}|${x.uid}`, { player: x.offer.payload.player, at: x.acc.payload.iat }]));
   const key = { kid: s.key.kid, privateKey: privateFromJwk(s.key.private) };
   const { today, at } = clock;
   const exp = Object.fromEntries(config.items.map((r) => [r.id, r.cgnlPer]));
@@ -120,6 +117,8 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   const grantFor = config.grantFor ?? ((cgnl) => [{ id: config.grantId, qty: Math.floor(cgnl / imp[config.grantId]) }]);
 
   const pseudonym = (uid) => createHmac("sha256", s.secret).update(uid).digest("base64url");
+  /** R10's public name for an account here, toward one partner: links its crossovers from that game, nothing else. */
+  const holderOf = (uid, aud) => createHmac("sha256", s.secret).update(`${uid}|${aud}`).digest("base64url");
   for (const [uid, pl] of Object.entries(s.players)) {
     // A state from before the adapters kept these per player
     s.uids[pseudonym(uid)] ??= uid;
@@ -177,6 +176,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const has = (o, m) => s.log.some((e) => e.payload.type === "contract" && e.payload.aud === o && e.payload.month === m);
     const before = s.log.length;
     for (const o of partners) {
+      if (s.log.some((e) => e.payload.type === "order" && e.payload.op === "end" && e.payload.aud === o)) continue; // Ended by the council: a new start is a new decision
       const m = t.slice(0, 7);
       if (!has(o, m)) append({ type: "contract", id: rid(), aud: o, month: m });
       const next = monthAdd(m, 1);
@@ -185,19 +185,24 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     if (s.log.length > before) sign();
   }
 
-  /** The council as configured (§14): `config.council` lists each member with the consent they signed with their own
-   * key; one is `master`. Whoever is new is seated (their consent checked, logged); whoever is gone, logged leaving. */
+  /** The first council (§14): `config.council` lists each member with the consent they signed with their own key; one
+   * is `master`. Seated once, while the log has no council; every change after that is the council's own `order`. */
   function councilUp() {
-    const want = config.council ?? [];
-    const now = roster(s.log);
-    for (const { member, consent, master } of want) {
-      if (now.members.some((m) => m.account === member.account)) continue;
+    if (s.log.some((e) => e.payload.type === "council")) return;
+    for (const { member, consent, master } of config.council ?? []) {
       if (!consentOk(origin, member, consent)) throw new Error(`council: ${member.account}'s consent doesn't open with their key`);
       append({ type: "council", op: "join", member, consent, ...(master ? { master: true } : {}) });
     }
-    for (const m of now.members) if (!want.some((w) => w.member.account === m.account)) append({ type: "council", op: "leave", member: { account: m.account }, by: "master" });
-    const master = want.find((w) => w.master)?.member.account;
-    if (master && roster(s.log).master !== master) append({ type: "council", op: "master", member: { account: master } });
+  }
+
+  /** A link (R10) kept before links were logged: logged now, once. */
+  function linksUp() {
+    for (const [k, l] of Object.entries(s.links ?? {})) {
+      const [aud, uid] = [k.slice(0, k.lastIndexOf("|")), k.slice(k.lastIndexOf("|") + 1)];
+      append({ type: "link", aud, holder: holderOf(uid, aud), source: l.player, op: "on" });
+      if (l.off) append({ type: "link", aud, holder: holderOf(uid, aud), source: l.player, op: "off" });
+    }
+    delete s.links;
   }
 
   /** What a game keeps up on its own, each day and on any write: its council, a changed card dated and logged (§4),
@@ -205,6 +210,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
   function upkeep() {
     const size = s.log.length;
     councilUp();
+    linksUp();
     const body = cardBody();
     if (s.cardHash !== hashOf(body)) {
       s.cardHash = hashOf(body);
@@ -294,6 +300,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     });
     const unbound = contractAt({ origin, entries: s.log }, pubTo, at());
     if (unbound) throw fail(403, "CONTRACT", unbound);
+    if (paused(to)) throw fail(403, "PAUSED", "crossing with that game is paused by this game's council (§14)");
     // R9, no pass-through: what came in from other games never leaves again — only effort spent here does
     const received = Object.values(s.accepts).filter((x) => x.uid === uid && s.grants[x.acc.payload.id]).reduce((n, x) => n + x.acc.payload.cgnl, 0);
     const mine = worth(Object.entries(st).map(([id, qty]) => ({ id, qty })).filter((it) => exp[it.id])) - received;
@@ -364,6 +371,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const me = { origin, entries: s.log };
     const unbound = contractAt(me, a, at());
     if (unbound) throw fail(403, "CONTRACT", unbound);
+    if (paused(o.iss)) throw fail(403, "PAUSED", "crossing with that game is paused by this game's council (§14)");
     const t = o.ticket?.payload;
     const tk = s.tickets[t?.sub];
     if (!opens(o.ticket, [s.key.jwk]) || t.iss !== origin || t.aud !== o.iss || t.exp < at() || !tk || tk.used || tk.nonce !== t.nonce)
@@ -371,14 +379,14 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const why = r2(a, env);
     if (why) throw fail(422, "R2", why);
     // R10, one source at a time: an account here takes from one account of each partner game, which gives to it alone;
-    // another needs the link undone first, and a week (UNLINK_DAYS) after undoing it before any new link, either side
-    const key = `${o.iss}|${tk.uid}`;
-    const link = s.links[key];
-    const fresh = (l) => l.off && at() < new Date(Date.parse(l.off) + UNLINK_DAYS * DAY).toISOString();
-    if (link && !link.off && link.player !== o.player) throw fail(403, "SOURCE", "this account takes from another account of that game: undo that link first");
-    for (const [k, l] of Object.entries(s.links))
-      if (k.startsWith(`${o.iss}|`) && k !== key && l.player === o.player && (!l.off || fresh(l))) throw fail(403, "SOURCE", l.off ? `that account left another account here on ${l.off.slice(0, 10)}: a new link waits ${UNLINK_DAYS} days` : "that account gives to another account here");
-    if (link?.off && link.player !== o.player && fresh(link)) throw fail(403, "SOURCE", `this account undid its link on ${link.off.slice(0, 10)}: a new source waits ${UNLINK_DAYS} days`);
+    // another needs the link undone first, and a week (UNLINK_DAYS) after undoing it before any new link, either side.
+    // Logged (`link`), so anyone can check it from the log alone
+    const holder = holderOf(tk.uid, o.iss);
+    const now = links(s.log);
+    const linked = now.live.get(`${o.iss}|h|${holder}`)?.source === o.player;
+    const link = { type: "link", aud: o.iss, holder, source: o.player, op: "on" };
+    const after = linked ? now : links([...s.log, { payload: { ...link, iat: at() } }]);
+    if (after.breaches.length > now.breaches.length) throw fail(403, "SOURCE", after.breaches.at(-1).slice(12));
     // R10, the receiving side's time bound: at most hoursPerDay for each day the account has been here
     const joined = s.first[pseudonym(tk.uid)] ?? today();
     const taken = Object.values(s.accepts).filter((x) => x.uid === tk.uid).reduce((n, x) => n + x.acc.payload.cgnl, 0);
@@ -396,9 +404,9 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     const grant = (await grantFor(o.cgnl, imp, tk)).filter((g) => g.qty > 0);
     if (!grant.length) throw fail(422, "TOO_LITTLE", "too little effort to give anything for");
     tk.used = true;
-    const acc = append({ type: "accept", id: o.id, aud: o.iss, offer: hashOf(o), cgnl: o.cgnl, grant, upfront: policy.upfront, burnBy: at(1) });
+    if (!linked) append(link);
+    const acc = append({ type: "accept", id: o.id, aud: o.iss, offer: hashOf(o), cgnl: o.cgnl, grant, upfront: policy.upfront, burnBy: at(1), holder });
     s.accepts[hashOf(acc.payload)] = { acc, uid: tk.uid, from: o.iss, offer: env };
-    if (!link || link.off || link.player !== o.player) s.links[key] = { player: o.player, at: at() };
     sign();
     return acc;
   }
@@ -444,21 +452,32 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
 
   /** R10: the player here undoes their link to a partner's account. A new source, either side, waits UNLINK_DAYS. */
   function unlink(uid, from) {
-    const l = s.links[`${from}|${uid}`];
-    if (!l || l.off) throw fail(404, "NO_LINK", "no link to undo");
-    l.off = at();
-    return { from, off: l.off, newSourceFrom: at(UNLINK_DAYS) };
+    const holder = holderOf(uid, from);
+    const l = links(s.log).live.get(`${from}|h|${holder}`);
+    if (!l) throw fail(404, "NO_LINK", "no link to undo");
+    const off = append({ type: "link", aud: from, holder, source: l.source, op: "off" });
+    sign();
+    return { from, off: off.payload.iat, newSourceFrom: at(UNLINK_DAYS) };
   }
-  const sources = (uid) => Object.fromEntries(Object.entries(s.links).filter(([k]) => k.endsWith(`|${uid}`)).map(([k, l]) => [k.slice(0, k.lastIndexOf("|")), { since: l.at, off: l.off ?? null }]));
+  /** Each partner this account has had a link with: since when, and when undone (null while live). */
+  function sources(uid) {
+    const out = {};
+    for (const e of s.log) {
+      const p = e.payload;
+      if (p.type !== "link" || p.holder !== holderOf(uid, p.aud)) continue;
+      out[p.aud] = p.op === "on" ? { since: p.iat, off: null } : { ...out[p.aud], off: p.iat };
+    }
+    return out;
+  }
 
   /** §8.1, as the giving game: one of its crossovers was cheated by its own player, on evidence it holds. It says so,
    * signed (VOID, to the receiver too); the sender owes what it carried, in cgnl, paid before anything else. */
-  async function voidCrossover(offerId, why) {
+  async function voidCrossover(offerId, why, order) {
     const off = s.log.find((e) => e.payload.type === "offer" && e.payload.id === offerId);
     if (!off || !s.log.some((e) => e.payload.type === "burn" && e.payload.id === offerId)) throw fail(404, "NO_CROSSOVER", "no burnt crossover by that id");
     if (s.voided[offerId]) return s.voided[offerId];
     const uid = s.uids[off.payload.player];
-    const v = append({ type: "void", id: offerId, aud: off.payload.aud, offer: hashOf(off.payload), why: String(why).slice(0, 200) });
+    const v = append({ type: "void", id: offerId, aud: off.payload.aud, offer: hashOf(off.payload), why: String(why).slice(0, 200), ...(order ? { order } : {}) });
     s.debts[uid] = (s.debts[uid] ?? 0) + off.payload.cgnl;
     append({ type: "penalty", id: rid(), offer: hashOf(off.payload), side: "sent", cgnl: off.payload.cgnl, player: off.payload.player });
     s.voided[offerId] = v;
@@ -481,6 +500,56 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     append({ type: "penalty", id: rid(), offer: v.offer, side: "received", cgnl: rec.acc.payload.cgnl, void: hashOf(v) });
     sign();
     return { ok: true };
+  }
+
+  /** §8.2, as the receiving game: its own mistake in a grant (a wrong price, a bug): what hasn't been handed over yet
+   * is taken back, logged. Nobody owes anything: the fault is the game's. */
+  async function cut(id, why, order) {
+    const rec = Object.values(s.accepts).find((x) => x.acc.payload.id === id);
+    if (!rec || !s.grants[id]) throw fail(404, "NO_CROSSOVER", "no granted crossover by that id");
+    if (s.log.some((e) => e.payload.type === "cut" && e.payload.id === id)) return { ok: true };
+    await players.clawbackOne?.(rec.uid, id);
+    const c = append({ type: "cut", id, aud: rec.from, offer: rec.acc.payload.offer, why: String(why).slice(0, 200), ...(order ? { order } : {}) });
+    sign();
+    return c;
+  }
+
+  // §14: the council's acts. Each op names the fields it carries; the ballots sign all of them
+  const ORDERS = { seat: ["member", "consent"], unseat: ["account"], master: ["account"], resign: ["account"], pause: ["aud", "until"], end: ["aud"], void: ["id"], cut: ["id"] };
+  const seated = (a) => roster(s.log).members.some((m) => m.account === a);
+  const paused = (aud) => s.log.some((e) => e.payload.type === "order" && e.payload.op === "pause" && e.payload.aud === aud && e.payload.until > at());
+  /** An order of this game's council (§14): `{type: "order", iss, op, …, why, made}` and the yes `ballots` its members
+   * signed over it (orderOk). Logged with them, then done. */
+  async function onOrder(o) {
+    const fields = ["type", "iss", "op", "why", "made", "ballots", ...(ORDERS[o?.op] ?? [])];
+    if (o?.type !== "order" || o.iss !== origin || !ORDERS[o.op] || Object.keys(o).some((k) => !fields.includes(k)) || typeof o.why !== "string" || o.why.length > 200)
+      throw fail(400, "BAD_ORDER", "not an order for this game");
+    const no = orderOk(s.log, o, at());
+    if (no) throw fail(403, "ORDER", no);
+    const h = hashOf(Object.fromEntries(Object.entries(o).filter(([k]) => k !== "ballots")));
+    if (s.log.some((e) => e.payload.type === "order" && hashOf(Object.fromEntries(Object.entries(e.payload).filter(([k]) => k !== "ballots" && k !== "iat"))) === h)) return { ok: true, again: true };
+    const c = roster(s.log);
+    const bad = {
+      seat: () => (seated(o.member?.account) ? "already seated" : !consentOk(origin, o.member, o.consent) && "their consent doesn't open with their key"),
+      unseat: () => (!seated(o.account) ? "not seated" : o.account === c.master && "name another master first"),
+      master: () => !seated(o.account) && "a master must hold a seat",
+      resign: () => o.account === c.master && c.members.length > 1 && "name another master first",
+      pause: () => !(o.until > at() && o.until <= at(7)) && "a pause lasts at most 7 days",
+      end: () => !(config.partners ?? config.peers ?? []).includes(o.aud) && "not a partner",
+      void: () => false,
+      cut: () => false,
+    }[o.op]();
+    if (bad) throw fail(409, "ORDER", bad);
+    const { iss: _, ...entry } = o;
+    append(entry);
+    if (o.op === "seat") append({ type: "council", op: "join", member: o.member, consent: o.consent, order: h });
+    if (o.op === "unseat" || o.op === "resign") append({ type: "council", op: "leave", member: { account: o.account }, by: o.op === "resign" ? "self" : "council", order: h });
+    if (o.op === "master") append({ type: "council", op: "master", member: { account: o.account }, order: h });
+    if (o.op === "void") await voidCrossover(o.id, o.why, h);
+    if (o.op === "cut") await cut(o.id, o.why, h);
+    upkeep(); // The card's council
+    sign();
+    return { ok: true, order: h };
   }
 
   /** The fork cheat: drop the first offer from the log after a witness co-signed it, and sign the new history. */
@@ -517,6 +586,7 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
     "POST /gnl/burn": onBurn,
     "POST /gnl/audit": onAudit,
     "POST /gnl/void": onVoid,
+    "POST /gnl/order": onOrder,
     "POST /dev/tick": () => ({ day: s.lastDay }),
     // §4.1: how each thing is earned and what the prices stand on — for people and agents alike
     "GET /gnl/effort.json": () => (config.effort ? config.effort() : effortOf(card.payload)), // Online: any write first does the new day's work; this is the write that does only that
@@ -536,5 +606,5 @@ export function game(s, { origin, clock, config, cheat = "", players = memoryPla
       "POST /dev/cross": (b) => cross(String(b?.uid), String(b?.to), b?.items, b?.ticket),
     });
 
-  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, unlink, sources, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
+  return { get card() { return card; }, routes, newDay, upkeep, contracts, commit, voidCrossover, onVoid, cut, onOrder, unlink, sources, earn, witness, runAudits, ticket, cross, worth, rewrite, player, punish, pseudonym, state: s };
 }

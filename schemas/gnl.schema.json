@@ -536,6 +536,11 @@
         },
         "burnBy": {
           "$ref": "#/$defs/time"
+        },
+        "holder": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "R10: the game's pseudonym of the receiving account toward this partner; its live `link`"
         }
       }
     },
@@ -1113,6 +1118,10 @@
         "why": {
           "type": "string",
           "maxLength": 200
+        },
+        "order": {
+          "$ref": "#/$defs/hash",
+          "description": "the council's order, when the game has a council"
         }
       }
     },
@@ -1209,8 +1218,141 @@
         "by": {
           "enum": [
             "master",
-            "self"
+            "self",
+            "council"
           ]
+        },
+        "order": {
+          "$ref": "#/$defs/hash",
+          "description": "the order that made this change (all but the first council)"
+        }
+      }
+    },
+    "link": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "aud",
+        "holder",
+        "source",
+        "op"
+      ],
+      "description": "SPEC R10: an account here linked to (on) or unlinked from (off) one account of a partner game",
+      "properties": {
+        "type": {
+          "const": "link"
+        },
+        "holder": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "the partner's pseudonym of the giving account (its offers' player)"
+        },
+        "op": {
+          "enum": [
+            "on",
+            "off"
+          ]
+        }
+      }
+    },
+    "cut": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "id",
+        "aud",
+        "offer",
+        "why"
+      ],
+      "description": "SPEC §8.2: the receiving game takes back what it hasn't handed over of a grant it got wrong; nobody owes",
+      "properties": {
+        "type": {
+          "const": "cut"
+        },
+        "offer": {
+          "$ref": "#/$defs/hash"
+        },
+        "why": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "order": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "order": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        }
+      ],
+      "required": [
+        "type",
+        "op",
+        "why",
+        "made",
+        "ballots"
+      ],
+      "description": "SPEC §14: an act of the game's council, with the yes ballots of its members (each a `ballot` whose proposal is the hash of this payload without ballots and iat)",
+      "properties": {
+        "type": {
+          "const": "order"
+        },
+        "op": {
+          "enum": [
+            "seat",
+            "unseat",
+            "master",
+            "resign",
+            "pause",
+            "end",
+            "void",
+            "cut"
+          ]
+        },
+        "why": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "made": {
+          "$ref": "#/$defs/time"
+        },
+        "ballots": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "required": [
+              "payload",
+              "sig"
+            ]
+          }
+        },
+        "member": {
+          "type": "object"
+        },
+        "consent": {
+          "type": "object"
+        },
+        "account": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "until": {
+          "$ref": "#/$defs/time"
         }
       }
     }

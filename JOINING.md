@@ -16,7 +16,7 @@ Cho người làm game (và AI agent của họ) muốn game mình nối vào Gi
    Bảng công sức `/gnl/effort.json` (SPEC §4.1): mỗi thứ cày thế nào, giá dựa vào đâu (đo, thiết kế, tự khai hay ước đoán).
 4. **Giá đo từ người chơi thật**: trung vị lượng tăng mỗi giờ chơi, công bố cách đo. Không đoán.
 5. **Một trang trong game** để người chơi tự chọn mang đi và tự bấm xác nhận, đã đăng nhập. AI không được chuyển hộ (SPEC §10).
-6. **Người chịu trách nhiệm**: một master (chủ game) và hội đồng vận hành công khai; mỗi người tự tạo khoá và ký đồng ý trên máy mình bằng `npm run council` (SPEC §14).
+6. **Người chịu trách nhiệm**: một master (chủ game) và hội đồng vận hành công khai; mỗi người tự tạo khoá và ký đồng ý trên máy mình bằng `npm run council` (SPEC §14). Từ hai người trở lên, mọi thay đổi hội đồng và việc riêng của game là lệnh có quá nửa hội đồng ký (`npm run order`).
 
 ## Các bước và thời gian
 

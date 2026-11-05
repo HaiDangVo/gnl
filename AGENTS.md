@@ -29,8 +29,9 @@ The human version, with timings and what Res World asks: [JOINING.en.md](JOINING
 5. Serve the card, the log and the checkpoint. Commit daily. Witness your partners. Accept offers only from
    partners (SSRF, §10), and only under a contract in force (§5.1): sign your side each month, renew in the last
    7 days. A new contract, a higher policy or a new pricing method is put to a vote of host and players (§14);
-   renewing on the same terms, ending and lowering are the host's own. Enforce R9 and R10 (they're in `game.mjs`),
-   and void your own crossovers when you have evidence a player cheated (§8.1).
+   renewing on the same terms, ending and lowering are the host's own — with a council of two or more, as orders
+   its members sign (`npm run order`, `POST /gnl/order`). Enforce R9 and R10 (they're in `game.mjs`; log every link),
+   void your own crossovers when you have evidence a player cheated (§8.1), and cut a grant you got wrong (§8.2).
 6. Run `npm run conform -- https://your-game.example` until it passes, then `npm run audit -- <your origin> <a partner>`.
 7. Open an issue on https://github.com/HaiDangVo/gnl asking to join, with your origin and the conformance output.
 
